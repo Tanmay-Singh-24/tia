@@ -42,7 +42,11 @@ CORPUS_YAML = ROOT / "eval" / "corpus.yaml"
 LOG_DIR = CORPUS_DIR / "_logs"
 
 RESULT_SCHEMA = 1
-DEFAULT_TIMEOUT_S = 3600
+DEFAULT_TIMEOUT_S = 1800
+# A suite that has not finished in this long is not a corpus candidate: SPEC B.9
+# wants total runtime under ~15 minutes so the evaluation can be iterated on.
+# Overridable per invocation with --timeout.
+DEFAULT_SUITE_TIMEOUT_S = 600
 
 # pytest exit codes we care about (pytest.ExitCode).
 EXIT_OK = 0
@@ -306,7 +310,9 @@ COLLECTED_RE = re.compile(r"(\d+)\s+tests?\s+collected")
 PER_FILE_RE = re.compile(r"^\S+\.py: (\d+)$", re.MULTILINE)
 
 
-def collect_tests(spec: RepoSpec) -> tuple[int | None, Ran]:
+def collect_tests(
+    spec: RepoSpec, timeout_s: int = DEFAULT_SUITE_TIMEOUT_S
+) -> tuple[int | None, Ran]:
     """Count collectable tests without running them."""
     # No extra -q here: suite_args already carries one, and a second turns it
     # into -qq, which replaces the "N tests collected" summary with per-file
@@ -315,7 +321,7 @@ def collect_tests(spec: RepoSpec) -> tuple[int | None, Ran]:
         [str(spec.bin / "pytest"), *spec.suite_args, "--collect-only"],
         cwd=spec.checkout,
         env=venv_env(spec),
-        timeout_s=1800,
+        timeout_s=timeout_s,
         log_name=f"{spec.name}_collect",
     )
     match = COLLECTED_RE.search(result.stdout)
@@ -329,7 +335,12 @@ def collect_tests(spec: RepoSpec) -> tuple[int | None, Ran]:
 
 
 def time_suite(
-    spec: RepoSpec, *, runs: int, warmup: int, jobs: str | None
+    spec: RepoSpec,
+    *,
+    runs: int,
+    warmup: int,
+    jobs: str | None,
+    timeout_s: int = DEFAULT_SUITE_TIMEOUT_S,
 ) -> dict[str, Any]:
     """Time the full suite `runs` times. `jobs` is the -n value, or None for serial."""
     extra = ["-n", jobs] if jobs else []
@@ -337,14 +348,31 @@ def time_suite(
     label = f"n{jobs}" if jobs else "serial"
     env = venv_env(spec)
 
+    def abandoned(completed: int, durations: list[float]) -> dict[str, Any]:
+        """A timed-out mode is red, not slow. Record it and stop."""
+        print(f"[{spec.name}] {label} timed out after {timeout_s}s — abandoning")
+        return {
+            "command": shlex.join(command),
+            "timed_out": True,
+            "timeout_s": timeout_s,
+            "runs": completed,
+            "warmup_runs": warmup,
+            "durations_s": [round(d, 3) for d in durations],
+            "median_s": round(statistics.median(durations), 3) if durations else None,
+            "all_green": False,
+        }
+
     for index in range(warmup):
         print(f"[{spec.name}] warmup {index + 1}/{warmup} ({label})")
-        run(
+        warm = run(
             command,
             cwd=spec.checkout,
             env=env,
+            timeout_s=timeout_s,
             log_name=f"{spec.name}_{label}_warmup{index}",
         )
+        if warm.timed_out:
+            return abandoned(0, [])
 
     durations: list[float] = []
     exit_codes: list[int] = []
@@ -353,8 +381,11 @@ def time_suite(
             command,
             cwd=spec.checkout,
             env=env,
+            timeout_s=timeout_s,
             log_name=f"{spec.name}_{label}_run{index}",
         )
+        if result.timed_out:
+            return abandoned(index, durations)
         durations.append(result.duration_s)
         exit_codes.append(-1 if result.timed_out else result.exit_code)
         print(
@@ -374,6 +405,8 @@ def time_suite(
         "iqr_s": [round(quartiles[0], 3), round(quartiles[2], 3)]
         if quartiles
         else None,
+        "timed_out": False,
+        "timeout_s": timeout_s,
         "exit_codes": exit_codes,
         "all_green": all(code == EXIT_OK for code in exit_codes),
     }
@@ -404,17 +437,33 @@ def machine_info() -> dict[str, Any]:
     }
 
 
-def baseline(spec: RepoSpec, *, runs: int, warmup: int, serial: bool) -> dict[str, Any]:
+def baseline(
+    spec: RepoSpec,
+    *,
+    runs: int,
+    warmup: int,
+    serial: bool,
+    parallel: bool = True,
+    timeout_s: int = DEFAULT_SUITE_TIMEOUT_S,
+) -> dict[str, Any]:
     """Measure the optimised baseline and write it to eval/results/."""
-    count, collect_result = collect_tests(spec)
+    count, collect_result = collect_tests(spec, timeout_s=timeout_s)
     print(f"[{spec.name}] collected {count} tests (exit {collect_result.exit_code})")
 
     measurements: dict[str, Any] = {}
-    measurements["xdist_auto"] = time_suite(spec, runs=runs, warmup=warmup, jobs="auto")
-    if serial:
-        measurements["serial"] = time_suite(spec, runs=runs, warmup=warmup, jobs=None)
+    if parallel:
+        measurements["xdist_auto"] = time_suite(
+            spec, runs=runs, warmup=warmup, jobs="auto", timeout_s=timeout_s
+        )
+    # No point timing the slower mode when the parallel one already timed out.
+    if serial and not measurements.get("xdist_auto", {}).get("timed_out"):
+        measurements["serial"] = time_suite(
+            spec, runs=runs, warmup=warmup, jobs=None, timeout_s=timeout_s
+        )
 
-    green = bool(measurements["xdist_auto"]["all_green"])
+    green = (
+        all(m["all_green"] for m in measurements.values()) if measurements else False
+    )
     payload: dict[str, Any] = {
         "schema": RESULT_SCHEMA,
         "experiment": "baseline",
@@ -520,6 +569,17 @@ def main(argv: list[str] | None = None) -> int:
     baseline_parser.add_argument(
         "--no-serial", action="store_true", help="skip the unparallelised timing"
     )
+    baseline_parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        help="skip the -n auto timing (for suites that deadlock under xdist)",
+    )
+    baseline_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_SUITE_TIMEOUT_S,
+        help=f"abandon a suite run after N seconds (default {DEFAULT_SUITE_TIMEOUT_S})",
+    )
 
     clean_parser = sub.add_parser("clean", help="delete a checkout and its venv")
     clean_parser.add_argument("--repo", required=True)
@@ -542,7 +602,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if prepare(spec) else 1
     if args.command == "baseline":
         payload = baseline(
-            spec, runs=args.runs, warmup=args.warmup, serial=not args.no_serial
+            spec,
+            runs=args.runs,
+            warmup=args.warmup,
+            serial=not args.no_serial,
+            parallel=not args.no_parallel,
+            timeout_s=args.timeout,
         )
         return 0 if payload["green"] else 1
     if args.command == "clean":

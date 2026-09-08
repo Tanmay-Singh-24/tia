@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "experiment": "baseline",
+  "generated_by": "eval/corpus.py",
+  "generated_at_utc": "2026-09-08T19:46:08+00:00",
+  "repo": "black",
+  "url": "https://github.com/psf/black",
+  "sha": "20622e1259c29bda81831962ace1348ba1921c84",
+  "pinned_at": "2026-09-08",
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q"
+  ],
+  "env": {},
+  "install": [
+    "pip install --group tests -e \".[d,jupyter]\""
+  ],
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "collect": {
+    "tests": 558,
+    "exit_code": 0,
+    "duration_s": 0.462
+  },
+  "measurements": {
+    "xdist_auto": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/black/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q -n auto",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        6.492,
+        6.37,
+        6.459,
+        6.484,
+        6.607
+      ],
+      "median_s": 6.484,
+      "min_s": 6.37,
+      "max_s": 6.607,
+      "iqr_s": [
+        6.414,
+        6.55
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_green": true
+    },
+    "serial": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/black/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        23.105,
+        22.863,
+        22.677,
+        22.759,
+        22.757
+      ],
+      "median_s": 22.759,
+      "min_s": 22.677,
+      "max_s": 23.105,
+      "iqr_s": [
+        22.717,
+        22.984
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_green": true
+    }
+  },
+  "green": true
+}

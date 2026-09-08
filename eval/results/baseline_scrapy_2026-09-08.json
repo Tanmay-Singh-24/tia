@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "experiment": "baseline",
+  "generated_by": "eval/corpus.py",
+  "generated_at_utc": "2026-09-08T19:41:28+00:00",
+  "repo": "scrapy",
+  "url": "https://github.com/scrapy/scrapy",
+  "sha": "3fd2a407cc32fd9e124545b8ac47c4c479292af6",
+  "pinned_at": "2026-09-08",
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "scrapy",
+    "tests",
+    "--doctest-modules"
+  ],
+  "env": {},
+  "install": [
+    "pip install -e .",
+    "pip install attrs 'coverage>=7.10.6' httpx2 'pexpect>=4.8.0' psutil 'pyftpdlib>=2.0.1' pygments pytest 'pytest-cov>=7.0.0' pytest-rerunfailures pytest-timeout pytest-xdist 'sybil>=1.3.0' 'pytest-twisted>=1.14.3'"
+  ],
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "collect": {
+    "tests": 5000,
+    "exit_code": 0,
+    "duration_s": 1.906
+  },
+  "measurements": {
+    "xdist_auto": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/scrapy/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q scrapy tests --doctest-modules -n auto",
+      "runs": 1,
+      "warmup_runs": 0,
+      "durations_s": [
+        50.682
+      ],
+      "median_s": 50.682,
+      "min_s": 50.682,
+      "max_s": 50.682,
+      "iqr_s": null,
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        1
+      ],
+      "all_green": false
+    }
+  },
+  "green": false
+}

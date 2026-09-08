@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "experiment": "baseline",
+  "generated_by": "eval/corpus.py",
+  "generated_at_utc": "2026-09-08T19:46:50+00:00",
+  "repo": "rich",
+  "url": "https://github.com/Textualize/rich",
+  "sha": "9d8f9a372cc5916fd4781fec207ced7ddac2f08f",
+  "pinned_at": "2026-09-08",
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q"
+  ],
+  "env": {
+    "TERM": "unknown"
+  },
+  "install": [
+    "pip install -e .",
+    "pip install pytest pytest-cov attrs typing-extensions"
+  ],
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "collect": {
+    "tests": 981,
+    "exit_code": 0,
+    "duration_s": 0.336
+  },
+  "measurements": {
+    "xdist_auto": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/rich/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q -n auto",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        3.054,
+        3.057,
+        3.36,
+        3.042,
+        3.071
+      ],
+      "median_s": 3.057,
+      "min_s": 3.042,
+      "max_s": 3.36,
+      "iqr_s": [
+        3.048,
+        3.215
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "all_green": false
+    },
+    "serial": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/rich/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        3.762,
+        3.788,
+        3.771,
+        3.758,
+        3.759
+      ],
+      "median_s": 3.762,
+      "min_s": 3.758,
+      "max_s": 3.788,
+      "iqr_s": [
+        3.759,
+        3.78
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "all_green": false
+    }
+  },
+  "green": false
+}

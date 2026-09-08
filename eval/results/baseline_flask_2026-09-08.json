@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "experiment": "baseline",
+  "generated_by": "eval/corpus.py",
+  "generated_at_utc": "2026-09-08T19:43:11+00:00",
+  "repo": "flask",
+  "url": "https://github.com/pallets/flask",
+  "sha": "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35",
+  "pinned_at": "2026-09-08",
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q"
+  ],
+  "env": {},
+  "install": [
+    "pip install -e \".[async,dotenv]\"",
+    "pip install pytest"
+  ],
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "collect": {
+    "tests": 494,
+    "exit_code": 0,
+    "duration_s": 0.276
+  },
+  "measurements": {
+    "xdist_auto": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/flask/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q -n auto",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        0.983,
+        1.002,
+        1.004,
+        0.998,
+        1.031
+      ],
+      "median_s": 1.002,
+      "min_s": 0.983,
+      "max_s": 1.031,
+      "iqr_s": [
+        0.991,
+        1.018
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_green": true
+    },
+    "serial": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/flask/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        0.66,
+        0.663,
+        0.661,
+        0.66,
+        0.689
+      ],
+      "median_s": 0.661,
+      "min_s": 0.66,
+      "max_s": 0.689,
+      "iqr_s": [
+        0.66,
+        0.676
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_green": true
+    }
+  },
+  "green": true
+}

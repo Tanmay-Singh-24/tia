@@ -50,7 +50,9 @@ repos:
     sha: d73fa1cdcbd8b1465c151db8924ba58b1dd14e35
     pinned_at: 2026-09-08
     package: [flask]
-    install: ["pip install -e .", "pip install pytest"]
+    # The async extra is required or tests/test_helpers.py::test_async_view
+    # fails with "Install Flask with the 'async' extra".
+    install: ['pip install -e ".[async,dotenv]"', "pip install pytest"]
     status: candidate
 
   - name: httpx
@@ -84,4 +86,14 @@ repos:
          'pyftpdlib>=2.0.1' pygments pytest 'pytest-cov>=7.0.0'
          pytest-rerunfailures pytest-timeout pytest-xdist 'sybil>=1.3.0'
          'pytest-twisted>=1.14.3'"
+    # scrapy's own tox command scopes the suite to `scrapy tests
+    # --doctest-modules`. Without those paths pytest also collects the .rst
+    # files under docs/ through sybil, which fail on their own — we would be
+    # measuring a suite the project does not run.
+    # TestRealWebsite fetches https://books.toscrape.com/ over live internet.
+    # A baseline that depends on the network is not reproducible (and SPEC E.3
+    # rules out network-dependent demos), so it is deselected and said so here.
+    suite_args: ["-p", "no:randomly", "-p", "no:cacheprovider", "-q",
+                 "scrapy", "tests", "--doctest-modules",
+                 "--deselect", "tests/test_downloader_handler_httpx.py::TestRealWebsite"]
     status: candidate
