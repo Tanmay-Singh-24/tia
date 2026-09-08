@@ -243,19 +243,24 @@ def build(
                 relative, db.upsert_file(conn, relative, file_kind(relative))
             )
             rows: list[tuple[int, int, int]] = []
+            import_time: list[tuple[int, int]] = []
             for lineno, contexts in data.contexts_by_lineno(measured).items():
                 for context in contexts:
                     parts = split_context(context)
                     if parts is None:
-                        # Import-time line. Recorded as a count only: it belongs
-                        # to no test, and pretending otherwise would be a silent
-                        # miss. The classifier falls back on these (D-0007).
+                        # Executed at import time, outside any test. Recorded as
+                        # a line, not attributed to a test: the tests that
+                        # depend on it were never observed running it. A change
+                        # to such a line falls back (D-0007, D-0009).
+                        import_time.append((file_id, lineno))
                         result.import_time_lines += 1
                         continue
                     rows.append((file_id, lineno, test_id_for(parts[0])))
             if rows:
                 db.insert_coverage(conn, rows)
                 result.coverage_rows += len(rows)
+            if import_time:
+                db.insert_import_time_lines(conn, import_time)
 
         result.build_duration_s = time.perf_counter() - build_started
         for key, value in {

@@ -12,6 +12,7 @@ deliberately giving up the speed benefit.
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
@@ -99,6 +100,7 @@ def classify(
     *,
     mapped_files: frozenset[str],
     always_full: list[str],
+    import_time_lines: frozenset[int] = frozenset(),
 ) -> Verdict:
     """Route one changed path to exactly one outcome.
 
@@ -153,7 +155,21 @@ def classify(
     if change.status == "D":
         return Verdict(change, Reason.UNMAPPED_FILE, "all", lookup)
 
-    # 11. Everything above failed to apply: the map can answer this by line.
+    # 11. A changed line that ever executed at import time cannot be resolved
+    # by line. Coverage attributes import-time execution to no test at all, so
+    # a test whose dependency was established while the module was being
+    # imported never appears as covering the line. This rule exists because its
+    # absence produced a measured miss: see D-0009.
+    touched_at_import = sorted(change.old_lines & import_time_lines)
+    if touched_at_import:
+        return Verdict(
+            change,
+            Reason.IMPORT_TIME_LINE,
+            "all",
+            f"line {touched_at_import[0]} also ran at import time",
+        )
+
+    # 12. Everything above failed to apply: the map can answer this by line.
     return Verdict(change, Reason.SELECTED, "line", lookup)
 
 
@@ -162,13 +178,24 @@ def classify_all(
     *,
     mapped_files: frozenset[str],
     always_full: list[str],
+    import_time_lookup: Callable[[str], frozenset[int]] | None = None,
 ) -> list[Verdict]:
     """Classify every change. A classifier that raises falls back, never fails."""
     verdicts: list[Verdict] = []
     for change in changes:
         try:
+            lines = (
+                import_time_lookup(change.lookup_path)
+                if import_time_lookup
+                else frozenset()
+            )
             verdicts.append(
-                classify(change, mapped_files=mapped_files, always_full=always_full)
+                classify(
+                    change,
+                    mapped_files=mapped_files,
+                    always_full=always_full,
+                    import_time_lines=lines,
+                )
             )
         except Exception as exc:  # noqa: BLE001 - an error must never mean fewer tests
             verdicts.append(

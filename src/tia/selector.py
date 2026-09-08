@@ -200,7 +200,10 @@ def _select_with_map(
 
     mapped = frozenset(db.mapped_source_files(conn))
     verdicts = classify_all(
-        changes, mapped_files=mapped, always_full=config.always_full
+        changes,
+        mapped_files=mapped,
+        always_full=config.always_full,
+        import_time_lookup=lambda path: db.import_time_lines(conn, path),
     )
 
     fallbacks = [v.reason for v in verdicts if v.is_fallback]

@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 MAP_DIRNAME = ".tia"
 MAP_FILENAME = "map.db"
@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS coverage_line (
 ) WITHOUT ROWID;
 
 CREATE INDEX IF NOT EXISTS idx_cov_by_test ON coverage_line(test_id);
+
+-- Lines that executed at import time, outside any test. A line here cannot be
+-- attributed to the tests that depend on it: a test whose dependency was
+-- established while the module was being imported never appears as covering
+-- it. Recorded in v2 after a measured miss; see D-0009.
+CREATE TABLE IF NOT EXISTS import_time_line (
+    file_id INTEGER NOT NULL REFERENCES file(id),
+    lineno  INTEGER NOT NULL,
+    PRIMARY KEY (file_id, lineno)
+) WITHOUT ROWID;
 
 CREATE TABLE IF NOT EXISTS import_edge (
     importer_file_id INTEGER NOT NULL REFERENCES file(id),
@@ -112,6 +122,16 @@ def migrate(conn: sqlite3.Connection) -> None:
         raise ValueError(
             f"map schema v{version} is newer than this tia understands "
             f"(v{SCHEMA_VERSION}); upgrade tia or rebuild the map"
+        )
+    if version < SCHEMA_VERSION:
+        # v1 maps have no import_time_line table, so we cannot tell whether a
+        # changed line was ever executed at import time. That is the exact gap
+        # that produced a measured miss (D-0009), so an old map is refused
+        # rather than used with a silent hole in it. The caller treats this as
+        # an unusable map and runs the full suite.
+        raise ValueError(
+            f"map schema v{version} predates import-time line tracking "
+            f"(v{SCHEMA_VERSION}); rebuild it with `tia build`"
         )
 
 
@@ -188,6 +208,26 @@ def insert_coverage(
 # --------------------------------------------------------------------------
 
 
+def insert_import_time_lines(
+    conn: sqlite3.Connection, rows: Iterable[tuple[int, int]]
+) -> None:
+    """Bulk-insert (file_id, lineno) pairs that executed outside any test."""
+    conn.executemany(
+        "INSERT OR IGNORE INTO import_time_line(file_id, lineno) VALUES(?, ?)", rows
+    )
+
+
+def import_time_lines(conn: sqlite3.Connection, path: str) -> frozenset[int]:
+    """Lines of this file that ever executed at import time."""
+    file_id = file_id_for(conn, path)
+    if file_id is None:
+        return frozenset()
+    rows = conn.execute(
+        "SELECT lineno FROM import_time_line WHERE file_id = ?", (file_id,)
+    )
+    return frozenset(int(row["lineno"]) for row in rows)
+
+
 def file_id_for(conn: sqlite3.Connection, path: str) -> int | None:
     row = conn.execute("SELECT id FROM file WHERE path = ?", (path,)).fetchone()
     return None if row is None else int(row["id"])
@@ -260,6 +300,21 @@ def tests_covering_line(conn: sqlite3.Connection, path: str, lineno: int) -> lis
     return sorted(tests_for_lines(conn, path, [lineno]))
 
 
+def covered_lines(conn: sqlite3.Connection, path: str) -> set[int]:
+    """Every line of this file that some test executed.
+
+    Mutation sites are sampled from these: a defect on a line no test runs is
+    not a test of selection, it is a test of the suite.
+    """
+    file_id = file_id_for(conn, path)
+    if file_id is None:
+        return set()
+    rows = conn.execute(
+        "SELECT DISTINCT lineno FROM coverage_line WHERE file_id = ?", (file_id,)
+    )
+    return {int(row["lineno"]) for row in rows}
+
+
 def all_test_nodeids(conn: sqlite3.Connection) -> set[str]:
     return {str(row["nodeid"]) for row in conn.execute("SELECT nodeid FROM test")}
 
@@ -282,5 +337,6 @@ def stats(conn: sqlite3.Connection, path: Path | None = None) -> dict[str, Any]:
         "files": count("file"),
         "tests": count("test"),
         "coverage_rows": count("coverage_line"),
+        "import_time_lines": count("import_time_line"),
         "size_bytes": path.stat().st_size if path and path.exists() else None,
     }

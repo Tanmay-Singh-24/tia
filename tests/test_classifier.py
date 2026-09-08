@@ -201,3 +201,58 @@ def test_every_reason_code_has_a_description() -> None:
     for reason in Reason:
         assert reason.description
         assert len(reason.description) > 20
+
+
+# --- D-0009: the rule added after a measured miss --------------------------
+
+
+def test_line_that_ran_at_import_time_falls_back() -> None:
+    """A line executed at import time cannot be resolved to the tests that need it.
+
+    This rule exists because its absence produced a real miss on attrs: line 88
+    of src/attr/_cmp.py runs both inside two tests and at import time, when
+    tests/test_cmp.py builds classes at module level. The map recorded only the
+    two in-test executions, so selecting by that line omitted the six tests that
+    actually failed.
+    """
+    v = classify(
+        change("src/app/core.py", lines={10}),
+        mapped_files=MAPPED,
+        always_full=[],
+        import_time_lines=frozenset({10}),
+    )
+    assert v.reason is Reason.IMPORT_TIME_LINE
+    assert v.is_fallback
+
+
+def test_import_time_lines_elsewhere_in_the_file_do_not_block_selection() -> None:
+    """Only the *changed* lines matter; other import-time lines are irrelevant."""
+    v = classify(
+        change("src/app/core.py", lines={10}),
+        mapped_files=MAPPED,
+        always_full=[],
+        import_time_lines=frozenset({500, 501}),
+    )
+    assert v.reason is Reason.SELECTED
+
+
+def test_any_overlap_is_enough_to_fall_back() -> None:
+    """A hunk touching one import-time line among many still cannot be trusted."""
+    v = classify(
+        change("src/app/core.py", lines={10, 11, 12}),
+        mapped_files=MAPPED,
+        always_full=[],
+        import_time_lines=frozenset({12}),
+    )
+    assert v.reason is Reason.IMPORT_TIME_LINE
+
+
+def test_a_test_file_change_still_wins_over_import_time() -> None:
+    """Ordering check: changed tests run regardless of import-time execution."""
+    v = classify(
+        change("tests/test_core.py", lines={10}),
+        mapped_files=MAPPED,
+        always_full=[],
+        import_time_lines=frozenset({10}),
+    )
+    assert v.reason is Reason.TEST_CHANGED

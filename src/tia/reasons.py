@@ -93,10 +93,11 @@ DESCRIPTIONS: dict[Reason, str] = {
     ),
     Reason.USER_CONFIGURED: ("The path matches an always_full glob in .tia.toml."),
     Reason.IMPORT_TIME_LINE: (
-        "The changed line only ever executed at import time, so it belongs to "
-        "no single test. Attributing it to the tests that touched the file "
-        "would be unsound, because a test can import a module without executing "
-        "any other line in it."
+        "The changed line executed at import time, outside any test. Coverage "
+        "attributes such execution to no test at all, so a test whose "
+        "dependency on this line was established while the module was being "
+        "imported never appears as covering it. Line-level selection would "
+        "silently omit those tests, so the whole suite runs instead."
     ),
     Reason.MAP_STALE: (
         "The map was built at a commit that is not an ancestor of the change "

@@ -396,3 +396,85 @@ should be rare, not common.
 forces the stale condition deterministically (writing the mutant at the
 original file's exact mtime) and asserts both halves: missed while the cache
 stands, caught once it is invalidated.
+
+---
+
+## D-0009 — A measured miss: lines that execute both at import time and inside tests
+
+**Date:** 2026-09-09 · **Area:** classifier/mapper · **Status:** accepted
+
+**Context.** The first safety run on attrs (50 mutants, seed 1234) produced
+**one miss in 46 non-equivalent mutants**. This entry is the root cause of that
+single miss, written out in full because a miss is a failure of the core
+guarantee and averaging it into a rate would be exactly the dishonesty this
+project exists to avoid.
+
+**The mutant.** `src/attr/_cmp.py:88`, `if ge is not None:` forced to
+`if True:`. The full suite caught it — six failures, all in `tests/test_cmp.py`:
+
+```
+FAILED tests/test_cmp.py::TestEqOrder::test_ge_same_type[PartialOrderCSameType]
+FAILED tests/test_cmp.py::TestEqOrder::test_ge_same_type[PartialOrderCAnyType]
+FAILED tests/test_cmp.py::TestEqOrder::test_ge_different_type[PartialOrderCAnyType]
+FAILED tests/test_cmp.py::TestEqOrder::test_not_lt_same_type[PartialOrderCSameType]
+FAILED tests/test_cmp.py::TestEqOrder::test_not_lt_same_type[PartialOrderCAnyType]
+FAILED tests/test_cmp.py::TestDundersPartialOrdering::test_ge
+```
+
+tia selected **two** tests, and neither was among them:
+
+```
+$ tia explain src/attr/_cmp.py:88
+src/attr/_cmp.py:88 — 2 tests executed this line:
+  tests/test_cmp.py::TestNotImplementedIsPropagated::test_not_implemented_is_propagated
+  tests/test_cmp.py::TestTotalOrderingException::test_eq_must_specified
+```
+
+**Root cause.** Line 88 lives inside `cmp_using()`, and `tests/test_cmp.py`
+calls that function **at module level**:
+
+```python
+# tests/test_cmp.py:15
+PartialOrderCSameType = cmp_using(..., class_name="PartialOrderCSameType")
+```
+
+That call runs during collection, before any test starts, so coverage.py
+attributes the execution to the empty import-time context and to no test. The
+only executions attributed to tests were the two that call `cmp_using` inside a
+test body. The six tests that genuinely depend on the line established that
+dependency at import time and therefore never appear as covering it.
+
+D-0007 had already identified import-time lines as unattributable and added the
+`IMPORT_TIME_LINE` fallback — but the rule only fired for lines with **no** test
+contexts at all. A line executed both at import time *and* inside a couple of
+tests looked perfectly mappable, and was not. The gap was the word "only".
+
+**Options considered.**
+1. *Attribute import-time lines to every test in the module that imported them.*
+   Unsound in the other direction: a test can import a module without executing
+   any other line of it, so this both over-selects and still misses.
+2. *Treat any line with an import-time execution as unresolvable and fall back.*
+   Conservative, cheap to implement, costs speed on genuinely shared lines.
+3. *Wait for the Phase 2 import graph to resolve it properly.* Leaves a known
+   miss in place for weeks, on a guarantee that is the whole thesis.
+
+**Decision.** Option 2. The map now records import-time lines in their own table
+(`import_time_line`, schema v2), and the classifier falls back with
+`IMPORT_TIME_LINE` when **any** changed line ever executed at import time —
+whether or not tests also covered it. Because a v1 map cannot answer that
+question, `migrate()` refuses it outright rather than using it with a silent
+hole; the caller treats that as an unusable map and runs everything.
+
+**How we would know this was wrong.** If `IMPORT_TIME_LINE` comes to dominate
+the fallback breakdown, the rule is too blunt and costs more speed than the
+safety is worth on that codebase. attrs records 1,704 import-time line
+executions, so the pressure is real. The number to watch is the share of
+`IMPORT_TIME_LINE` in fallback frequency; the escape hatch, if it is too high,
+is the Phase 2 import graph, which can name the modules that imported a file
+and select their tests rather than everything.
+
+**Evidence.** `eval/results/safety_attrs_2026-09-08.json` records the miss
+(seed 1234, 50 mutants). The re-run at the same seed after this change records
+the outcome for the same mutant. The rule is pinned by four cases in
+`tests/test_classifier.py`, including one asserting that import-time lines
+*elsewhere* in the file do not block selection.
