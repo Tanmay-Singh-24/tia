@@ -1,0 +1,14 @@
+# tia configuration. See https://github.com/tanmaysingh/tia
+[tia]
+# Import names to measure while building the map. Leave empty to measure
+# everything the suite imports from this repository.
+packages = []
+
+# Command that runs the full suite.
+suite = "pytest"
+
+# Revision changes are compared against by default.
+upstream = "origin/main"
+
+# Globs that always force the full suite, whatever the map says.
+always_full = []

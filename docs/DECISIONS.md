@@ -269,3 +269,130 @@ proposal commits to producing.
 **Evidence.** black 558 tests / 22.76 s vs attrs 1412 tests / 3.93 s, in
 `eval/results/baseline_black_2026-09-08.json` and
 `eval/results/baseline_attrs_2026-09-08.json`.
+
+---
+
+## D-0007 — Coverage spike: contexts, phases, import-time lines, xdist
+
+**Date:** 2026-09-09 · **Area:** instrumentation · **Status:** accepted
+
+**Context.** Everything downstream assumes coverage.py's dynamic contexts give
+us per-test line attribution in a form we can feed back to pytest. The proposal
+flags parallel instrumentation as a risk. Run on attrs (1412 tests) at the
+pinned SHA before any mapper code was written.
+
+**What was measured.**
+
+1. **Context format.** `pytest --cov=attr --cov=attrs --cov-context=test`
+   produces contexts that are pytest nodeids with a phase suffix:
+
+   ```
+   'tests/test_abc.py::TestUpdateAbstractMethods::test_abc_implementation[True]|run'
+   'tests/test_funcs.py::TestAsDict::test_shallow|setup'
+   'tests/test_make.py::TestAttributes::test_pre_post_init_order[True]|teardown'
+   ```
+
+   Over 1367 contexts: 1333 `|run`, 17 `|setup`, 16 `|teardown`, and exactly
+   one empty context `''`. Parametrised ids survive intact, so the strings feed
+   straight back to pytest with no translation. This confirms the SPEC's
+   preference for the pytest-cov route over `dynamic_context`.
+
+2. **xdist.** Under `-n auto`, pytest-cov combines the per-worker data files
+   automatically and **contexts survive**: 1368 contexts with the same suffix
+   distribution (one extra `|setup`, from a fixture that runs once per worker).
+   The documented fallback to sequential map construction is not needed.
+
+3. **Instrumented slowdown.** attrs serial 3.93 s → 8.55 s (**2.2×**); `-n auto`
+   2.30 s → 5.13 s (**2.2×**). Within the SPEC's predicted 2–5×. On scrapy this
+   projects to roughly 110 s parallel for a map build, which is acceptable for a
+   once-per-map cost.
+
+4. **Paths.** `CoverageData.measured_files()` returns absolute, fully resolved
+   paths (`/Users/.../repo/src/attr/_make.py`). They must be made relative to
+   the repo root and POSIX-normalised on the way into the map, exactly as SPEC
+   B.3 warns.
+
+5. **Import-time lines.** In `src/attr/_make.py`, 371 of 1700 covered lines
+   appear **only** in the empty context — executed at import, attributable to no
+   single test.
+
+**Decision.** Strip at the `|`, and keep setup and teardown coverage: a fixture
+touching a line is a genuine dependency. Store paths relative to the repo root.
+Import-time-only lines are the interesting case: a change to one cannot be
+attributed to any test, and a test may import a module without executing any
+other line in it, so selecting "tests that touched this file" would be unsound.
+Such a change therefore falls back to the full suite under a dedicated reason
+code, `IMPORT_TIME_LINE`.
+
+**How we would know this was wrong.** If `IMPORT_TIME_LINE` turns out to
+dominate the fallback-frequency breakdown — plausible, since a third of covered
+lines in this module are import-time — the conservatism is too expensive and the
+Phase 2 import graph becomes load-bearing rather than an enhancement. The
+measurement that decides it is the fallback breakdown in D8, and the number to
+watch is what fraction of real commits touch only import-time lines.
+
+**Evidence.** Commands and their real output are in this session; the
+instrumented timings are reproducible with
+`pytest --cov=attr --cov=attrs --cov-context=test` in the attrs corpus checkout.
+
+---
+
+## D-0008 — Mutants must explicitly invalidate bytecode caches
+
+**Date:** 2026-09-09 · **Area:** eval/safety · **Status:** accepted
+
+**Context.** Found while writing the end-to-end test that injects a defect and
+checks the selection catches it. The test failed: the full suite passed on a
+mutated file. The mutation had been written correctly — reading the file back
+showed `return a - b` — and the tests still passed.
+
+CPython validates a cached `.pyc` against two properties of the source: its
+**mtime in whole seconds** and its **size in bytes**. A mutation that changes
+neither is invisible. Single-site mutation operators produce exactly this case
+constantly: `==` → `!=`, `+` → `-`, `<` → `>` all preserve length, and a
+harness generating mutants in a loop writes them well inside one second.
+
+Measured, with the mutation applied immediately after a warm `.pyc`:
+
+| mutation | outcome |
+|---|---|
+| same size, same second | **missed** — stale bytecode, suite passes |
+| different size (padded) | caught |
+| same size, mtime bumped +10s | caught |
+| same size, after a 1.1 s wait | caught |
+
+**Why this is dangerous rather than merely annoying.** The safety experiment
+(SPEC B.9 metric 4) runs the full suite on each mutant and **excludes the
+mutant from the denominator when the full suite passes**, on the grounds that
+it must be equivalent. A mutant that never took effect is indistinguishable
+from an equivalent one. Every silently-ineffective mutant would therefore be
+quietly dropped, and the reported miss rate would be computed over mutations
+that never happened. The metric would look perfect and mean nothing — the exact
+failure this project exists to argue against.
+
+**Options considered.**
+1. *`PYTHONDONTWRITEBYTECODE=1`* — necessary but **not sufficient**: it stops
+   Python writing caches, not reading a stale one that already exists.
+2. *Pad mutants to change file size* — corrupts the experiment: the mutation is
+   no longer the only difference.
+3. *Sleep or bump mtime* — works, but relies on a side effect rather than
+   saying what is meant, and a bumped mtime is still only second-granular.
+4. *Delete the cached `.pyc` explicitly after writing each mutant.*
+
+**Decision.** Option 4, with option 1 alongside. Every write of a mutant
+unlinks `importlib.util.cache_from_source(path)`, and every subprocess in the
+evaluation runs with `PYTHONDONTWRITEBYTECODE=1` so no fresh stale cache can
+appear mid-experiment. `eval/mutate.py` must use this when it is written in D8;
+it is not optional, and it is not a detail.
+
+**How we would know this was wrong.** If the D8 safety run reports an
+implausibly high equivalent-mutant rate, suspect this first. A cheap standing
+check: for a sample of mutants, assert that at least one test *changes outcome*
+between the clean tree and the mutant. A mutant that changes nothing anywhere
+should be rare, not common.
+
+**Evidence.**
+`tests/test_end_to_end.py::test_same_size_mutation_is_invisible_without_invalidation`
+forces the stale condition deterministically (writing the mutant at the
+original file's exact mtime) and asserts both halves: missed while the cache
+stands, caught once it is invalidated.

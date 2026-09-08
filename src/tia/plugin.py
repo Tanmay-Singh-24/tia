@@ -1,19 +1,17 @@
 """The pytest plugin form: `pytest --tia [--tia-base=REV]`. See SPEC B.7.
 
-The options are registered from day one so the CI-facing surface is stable.
-Collection filtering lands in D7. Until then the plugin is deliberately inert:
-it announces itself and leaves every collected test in place. A tia that cannot
-select must never mean "no tests ran".
+This is how tia is used in CI: no wrapper process, no reimplementation of the
+runner, just a collection filter.
 
-The banner goes through pytest's terminal reporter rather than a bare print, so
-it lands in the report in collection order instead of racing pytest's buffered
-stdout. Bare stderr is kept only as a fallback for runs with no terminal
-plugin (`-p no:terminal`).
+The invariant, stated once and enforced by every branch below: if selection
+cannot be established, the plugin removes nothing. A tia that fails must cost
+time, never coverage.
 """
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -30,9 +28,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--tia-base",
         action="store",
-        default="origin/main",
+        default=None,
         metavar="REV",
-        help="Revision to diff against when selecting (default: origin/main).",
+        help="Revision to diff against when selecting (default: .tia.toml upstream).",
     )
 
 
@@ -46,14 +44,56 @@ def _banner(config: pytest.Config, message: str) -> None:
 
 
 def pytest_collection_modifyitems(
-    config: pytest.Config,
-    items: list[pytest.Item],
+    config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    """Filter collected tests down to the selection. Inert until D7."""
+    """Filter collected tests down to the selection."""
     if not config.getoption("--tia"):
         return
+
+    # Imported lazily so that merely having tia installed costs a plain pytest
+    # run nothing.
+    from tia import diff
+    from tia.config import Config
+    from tia.selector import select
+
+    try:
+        root = diff.repo_root(Path(str(config.rootpath)))
+        settings = Config.load(root)
+        decision = select(root, settings, base=config.getoption("--tia-base"))
+    except Exception as exc:  # noqa: BLE001 - never let tia break a test run
+        _banner(
+            config,
+            f"tia: selection failed ({type(exc).__name__}: {exc}); "
+            f"running all {len(items)} tests",
+        )
+        return
+
+    if decision.full_suite:
+        _banner(
+            config,
+            f"tia: full suite ({decision.primary_reason.value}) — "
+            f"running all {len(items)} tests",
+        )
+        return
+
+    selected = decision.selected
+    keep = [item for item in items if item.nodeid in selected]
+    removed = [item for item in items if item.nodeid not in selected]
+
+    if not keep:
+        _banner(
+            config,
+            f"tia: selection matched no collected test; running all {len(items)} "
+            f"tests rather than none",
+        )
+        return
+
+    items[:] = keep
+    if removed:
+        config.hook.pytest_deselected(items=removed)
     _banner(
         config,
-        f"tia: selection not implemented (lands in D7); "
-        f"running all {len(items)} collected tests",
+        f"tia: selected {len(keep)} of {len(keep) + len(removed)} tests "
+        f"(reason: {decision.primary_reason.value}, "
+        f"map @ {diff.short(decision.map_commit)})",
     )
