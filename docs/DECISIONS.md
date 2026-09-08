@@ -473,8 +473,26 @@ executions, so the pressure is real. The number to watch is the share of
 is the Phase 2 import graph, which can name the modules that imported a file
 and select their tests rather than everything.
 
-**Evidence.** `eval/results/safety_attrs_2026-09-08.json` records the miss
-(seed 1234, 50 mutants). The re-run at the same seed after this change records
-the outcome for the same mutant. The rule is pinned by four cases in
-`tests/test_classifier.py`, including one asserting that import-time lines
-*elsewhere* in the file do not block selection.
+**Evidence.** The post-fix run is committed under `eval/results/`. The rule is
+pinned by four cases in `tests/test_classifier.py`, including one asserting
+that import-time lines *elsewhere* in the file do not block selection.
+
+**A missing artefact, stated plainly.** The pre-fix run's JSON no longer
+exists. Results were keyed on the date alone, so re-running the experiment on
+the same day overwrote the very file it was meant to be compared against. That
+harness bug is fixed — filenames now carry a timestamp and the seed, and each
+payload records the tia version and commit — but the original file is gone, and
+this project does not get to cite evidence it cannot produce. The miss is
+reproducible from source: check out the parent of the commit that introduced
+this rule, rebuild the map, and apply the mutation quoted above. The command
+output in this entry was captured from that reproduction, not reconstructed.
+
+**The cost, measured immediately.** The re-run at seed 1234 gives 0 misses in
+47 non-equivalent mutants — and **28 of those 47 (59.6%) fall back, every one
+of them `IMPORT_TIME_LINE`**. The falsification condition written above fired on
+the very next run. The rule is correct and it is expensive; on attrs it is now
+the only thing preventing line-level selection in the majority of cases. This
+is the strongest argument yet that the Phase 2 import graph is load-bearing
+rather than an enhancement, and it should be presented as a finding, not
+buried: a conservative tool that gives up 60% of the time has an honest cost,
+and that cost is the headline of this experiment.

@@ -1,0 +1,1213 @@
+{
+  "schema": 1,
+  "experiment": "safety",
+  "generated_by": "eval/harness.py",
+  "tia_version": "0.1.0.dev0",
+  "tia_commit": "3e36a776325f90c9b1c38f938819be6a4c52784b",
+  "generated_at_utc": "2026-09-08T23:12:35+00:00",
+  "repo": "attrs",
+  "url": "https://github.com/python-attrs/attrs",
+  "sha": "8f767776326faaed11e6c2974798787f6e19b343",
+  "map_commit": "8f767776326faaed11e6c2974798787f6e19b343",
+  "seed": 1234,
+  "requested": 50,
+  "duration_s": 1115.8,
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q"
+  ],
+  "summary": {
+    "mutants_generated": 50,
+    "equivalent": 3,
+    "errors": 0,
+    "non_equivalent": 47,
+    "misses": 0,
+    "miss_rate": 0.0,
+    "fallback_count": 28,
+    "fallback_frequency": 0.595745,
+    "fallback_by_reason": {
+      "IMPORT_TIME_LINE": 28
+    },
+    "selection_ratio": {
+      "n": 19,
+      "median": 0.006752,
+      "min": 0.00075,
+      "max": 0.9985,
+      "mean": 0.061989
+    },
+    "wall_clock_s": {
+      "full_suite_median": 3.967,
+      "selected_median": 0.304
+    },
+    "misses_detail": []
+  },
+  "mutants": [
+    {
+      "index": 0,
+      "mutation": {
+        "path": "src/attr/_cmp.py",
+        "lineno": 88,
+        "family": "conditional_forcing",
+        "before": "ge is not None",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.827,
+      "selected_exit": 1,
+      "selected_s": 3.827,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 1,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1819,
+        "family": "return_replacement",
+        "before": "attrs_to_tuple(self) > attrs_to_tuple(other)",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.16,
+      "selected_exit": 1,
+      "selected_s": 0.488,
+      "selected_count": 28,
+      "total_tests": 1333,
+      "selection_ratio": 0.021005,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 2,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 3214,
+        "family": "conditional_forcing",
+        "before": "self.takes_self and self.takes_field",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.803,
+      "selected_exit": 1,
+      "selected_s": 0.253,
+      "selected_count": 9,
+      "total_tests": 1333,
+      "selection_ratio": 0.006752,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 3,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1298,
+        "family": "constant_perturbation",
+        "before": "True",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.967,
+      "selected_exit": 1,
+      "selected_s": 3.967,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 4,
+      "mutation": {
+        "path": "src/attr/_funcs.py",
+        "lineno": 312,
+        "family": "conditional_forcing",
+        "before": "not issubclass(cf, tuple)",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.857,
+      "selected_exit": 1,
+      "selected_s": 0.208,
+      "selected_count": 2,
+      "total_tests": 1333,
+      "selection_ratio": 0.0015,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 5,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 307,
+        "family": "constant_perturbation",
+        "before": "\"'\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.94,
+      "selected_exit": 1,
+      "selected_s": 3.94,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 6,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1475,
+        "family": "conditional_forcing",
+        "before": "isinstance(on_setattr, (list, tuple))",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 4,
+      "full_suite_s": 0.201,
+      "selected_exit": 4,
+      "selected_s": 0.201,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 7,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 3320,
+        "family": "constant_perturbation",
+        "before": "\"__attrs_post_init__\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 16.393,
+      "selected_exit": 1,
+      "selected_s": 16.393,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 8,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2335,
+        "family": "constant_perturbation",
+        "before": "\"    \"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 12.192,
+      "selected_exit": 1,
+      "selected_s": 0.374,
+      "selected_count": 1,
+      "total_tests": 1333,
+      "selection_ratio": 0.00075,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 9,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1884,
+        "family": "constant_perturbation",
+        "before": "'{self.__class__.__qualname__.rsplit(\">.\", 1)[-1]}'",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.678,
+      "selected_exit": 1,
+      "selected_s": 4.678,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 10,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 3203,
+        "family": "return_replacement",
+        "before": "f\"__attr_converter_{attr_name}\"",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": -1,
+      "full_suite_s": 900.047,
+      "selected_exit": -1,
+      "selected_s": 900.047,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 11,
+      "mutation": {
+        "path": "src/attr/_cmp.py",
+        "lineno": 78,
+        "family": "constant_perturbation",
+        "before": "\"lt\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.422,
+      "selected_exit": 2,
+      "selected_s": 0.422,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 12,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 330,
+        "family": "constant_perturbation",
+        "before": "1",
+        "after": "2"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.27,
+      "selected_exit": 1,
+      "selected_s": 4.27,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 13,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2068,
+        "family": "conditional_forcing",
+        "before": "has_cls_on_setattr and a.on_setattr is not setters.NO_OP",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.246,
+      "selected_exit": 1,
+      "selected_s": 4.246,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 14,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 429,
+        "family": "constant_perturbation",
+        "before": "\".\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.02,
+      "selected_exit": 1,
+      "selected_s": 0.254,
+      "selected_count": 20,
+      "total_tests": 1333,
+      "selection_ratio": 0.015004,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 15,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1167,
+        "family": "constant_perturbation",
+        "before": "\"__gt__\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.419,
+      "selected_exit": 1,
+      "selected_s": 4.419,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 16,
+      "mutation": {
+        "path": "src/attr/converters.py",
+        "lineno": 59,
+        "family": "constant_perturbation",
+        "before": "True",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.044,
+      "selected_exit": 1,
+      "selected_s": 0.214,
+      "selected_count": 4,
+      "total_tests": 1333,
+      "selection_ratio": 0.003001,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 17,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1290,
+        "family": "constant_perturbation",
+        "before": "\"Don't mix `cmp` with `eq' and `order`.\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.401,
+      "selected_exit": 1,
+      "selected_s": 0.266,
+      "selected_count": 1,
+      "total_tests": 1333,
+      "selection_ratio": 0.00075,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 18,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2692,
+        "family": "conditional_forcing",
+        "before": "name != \"metadata\"",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.38,
+      "selected_exit": 2,
+      "selected_s": 0.38,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 19,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2063,
+        "family": "boolean_negation",
+        "before": "and",
+        "after": "or"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.374,
+      "selected_exit": 2,
+      "selected_s": 0.374,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 20,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1889,
+        "family": "constant_perturbation",
+        "before": "\"def __repr__(self):\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 4,
+      "full_suite_s": 0.203,
+      "selected_exit": 4,
+      "selected_s": 0.203,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 21,
+      "mutation": {
+        "path": "src/attr/_next_gen.py",
+        "lineno": 414,
+        "family": "conditional_forcing",
+        "before": "auto_attribs is not None",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.83,
+      "selected_exit": 1,
+      "selected_s": 3.83,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 22,
+      "mutation": {
+        "path": "src/attr/_funcs.py",
+        "lineno": 85,
+        "family": "conditional_forcing",
+        "before": "value_serializer is not None",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.935,
+      "selected_exit": 1,
+      "selected_s": 0.597,
+      "selected_count": 34,
+      "total_tests": 1333,
+      "selection_ratio": 0.025506,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 23,
+      "mutation": {
+        "path": "src/attr/_funcs.py",
+        "lineno": 166,
+        "family": "conditional_forcing",
+        "before": "value_serializer is not None",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 8.14,
+      "selected_exit": 1,
+      "selected_s": 0.45,
+      "selected_count": 16,
+      "total_tests": 1333,
+      "selection_ratio": 0.012003,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 24,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1481,
+        "family": "constant_perturbation",
+        "before": "True",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.86,
+      "selected_exit": 1,
+      "selected_s": 3.86,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 25,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2692,
+        "family": "comparison_flip",
+        "before": "!=",
+        "after": "=="
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.379,
+      "selected_exit": 2,
+      "selected_s": 0.379,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 26,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 739,
+        "family": "constant_perturbation",
+        "before": "True",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.98,
+      "selected_exit": 1,
+      "selected_s": 0.235,
+      "selected_count": 6,
+      "total_tests": 1333,
+      "selection_ratio": 0.004501,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 27,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1994,
+        "family": "conditional_forcing",
+        "before": "not isinstance(cls, type)",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 5.961,
+      "selected_exit": 1,
+      "selected_s": 0.382,
+      "selected_count": 10,
+      "total_tests": 1333,
+      "selection_ratio": 0.007502,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 28,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1178,
+        "family": "conditional_forcing",
+        "before": "on_setattr and on_setattr is not setters.NO_OP",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.998,
+      "selected_exit": 1,
+      "selected_s": 3.998,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 29,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1509,
+        "family": "boolean_negation",
+        "before": "and",
+        "after": "or"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.761,
+      "selected_exit": 1,
+      "selected_s": 4.761,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 30,
+      "mutation": {
+        "path": "src/attr/converters.py",
+        "lineno": 156,
+        "family": "conditional_forcing",
+        "before": "val in (False, \"false\", \"f\", \"no\", \"n\", \"off\", \"0\", 0)",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.792,
+      "selected_exit": 1,
+      "selected_s": 0.204,
+      "selected_count": 3,
+      "total_tests": 1333,
+      "selection_ratio": 0.002251,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 31,
+      "mutation": {
+        "path": "src/attr/validators.py",
+        "lineno": 178,
+        "family": "boolean_negation",
+        "before": "and",
+        "after": "or"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.017,
+      "selected_exit": 1,
+      "selected_s": 0.212,
+      "selected_count": 1,
+      "total_tests": 1333,
+      "selection_ratio": 0.00075,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 32,
+      "mutation": {
+        "path": "src/attr/_cmp.py",
+        "lineno": 132,
+        "family": "conditional_forcing",
+        "before": "not self._is_comparable_to(other)",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.002,
+      "selected_exit": 1,
+      "selected_s": 0.304,
+      "selected_count": 52,
+      "total_tests": 1333,
+      "selection_ratio": 0.03901,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 33,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1339,
+        "family": "conditional_forcing",
+        "before": "flag is True or flag is False",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 5.486,
+      "selected_exit": 1,
+      "selected_s": 5.486,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 34,
+      "mutation": {
+        "path": "src/attr/_cmp.py",
+        "lineno": 137,
+        "family": "return_replacement",
+        "before": "NotImplemented",
+        "after": "None"
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 3.977,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    },
+    {
+      "index": 35,
+      "mutation": {
+        "path": "src/attr/_funcs.py",
+        "lineno": 92,
+        "family": "conditional_forcing",
+        "before": "has(value_type)",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 6.807,
+      "selected_exit": 1,
+      "selected_s": 0.826,
+      "selected_count": 19,
+      "total_tests": 1333,
+      "selection_ratio": 0.014254,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 36,
+      "mutation": {
+        "path": "src/attr/_compat.py",
+        "lineno": 127,
+        "family": "return_replacement",
+        "before": "is_gen",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 4.085,
+      "selected_exit": 1,
+      "selected_s": 4.085,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 37,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 506,
+        "family": "return_replacement",
+        "before": "_Attributes(AttrsClass(attrs), base_attrs, base_attr_map)",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 4,
+      "full_suite_s": 0.205,
+      "selected_exit": 4,
+      "selected_s": 0.205,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 38,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1498,
+        "family": "conditional_forcing",
+        "before": "hash is True",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 4,
+      "full_suite_s": 0.197,
+      "selected_exit": 4,
+      "selected_s": 0.197,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 39,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 418,
+        "family": "conditional_forcing",
+        "before": "a.__class__ is not _CountingAttr",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.951,
+      "selected_exit": 1,
+      "selected_s": 3.951,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 40,
+      "mutation": {
+        "path": "src/attr/converters.py",
+        "lineno": 154,
+        "family": "constant_perturbation",
+        "before": "\"true\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.937,
+      "selected_exit": 1,
+      "selected_s": 0.271,
+      "selected_count": 9,
+      "total_tests": 1333,
+      "selection_ratio": 0.006752,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 41,
+      "mutation": {
+        "path": "src/attr/__init__.py",
+        "lineno": 106,
+        "family": "constant_perturbation",
+        "before": "\"attrs\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.903,
+      "selected_exit": 1,
+      "selected_s": 4.168,
+      "selected_count": 1331,
+      "total_tests": 1333,
+      "selection_ratio": 0.9985,
+      "full_suite_selected": false,
+      "primary_reason": "PACKAGE_INIT",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 42,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2230,
+        "family": "constant_perturbation",
+        "before": "\"return\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.804,
+      "selected_exit": 1,
+      "selected_s": 3.804,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 43,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1267,
+        "family": "return_replacement",
+        "before": "cmp, cmp",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.918,
+      "selected_exit": 1,
+      "selected_s": 0.306,
+      "selected_count": 4,
+      "total_tests": 1333,
+      "selection_ratio": 0.003001,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 44,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1686,
+        "family": "conditional_forcing",
+        "before": "a.eq_key",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 3.851,
+      "selected_exit": 1,
+      "selected_s": 3.851,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 45,
+      "mutation": {
+        "path": "src/attr/validators.py",
+        "lineno": 647,
+        "family": "return_replacement",
+        "before": "_SubclassOfValidator(type)",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.386,
+      "selected_exit": 2,
+      "selected_s": 0.386,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 46,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2896,
+        "family": "return_replacement",
+        "before": "meth",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 6.291,
+      "selected_exit": 1,
+      "selected_s": 1.96,
+      "selected_count": 20,
+      "total_tests": 1333,
+      "selection_ratio": 0.015004,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 47,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 2891,
+        "family": "conditional_forcing",
+        "before": "self._converter is None",
+        "after": "True"
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 3.749,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    },
+    {
+      "index": 48,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 1504,
+        "family": "conditional_forcing",
+        "before": "hash is False",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 2,
+      "full_suite_s": 0.356,
+      "selected_exit": 2,
+      "selected_s": 0.356,
+      "selected_count": 0,
+      "total_tests": 1333,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 49,
+      "mutation": {
+        "path": "src/attr/_make.py",
+        "lineno": 870,
+        "family": "conditional_forcing",
+        "before": "hasattr(sys, \"_clear_type_descriptors\")",
+        "after": "False"
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 3.843,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    }
+  ]
+}

@@ -88,24 +88,30 @@ something plausible.
 | Tests selected | 31 of 1334 |
 | Selected run | 0.82 s against a 3.93 s serial baseline |
 
-**Safety, single injected defect** (`return False` → `return True` in
-`attr._funcs.has`):
+**Safety — 50 injected defects on attrs**, seed 1234, from
+[`eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json`](eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json):
 
-| | failures | wall clock |
-|---|---|---|
-| Full suite | 31 | 8.15 s |
-| tia selection | 31 | 1.68 s |
+| Metric | Value |
+|---|---|
+| Non-equivalent mutants | 47 (3 excluded as equivalent) |
+| **Misses** | **0** |
+| Fallback frequency | 28 of 47 (59.6%), all `IMPORT_TIME_LINE` |
+| Selection ratio when selecting | median 0.7% |
+| Full suite / selected, median | 3.97 s / 0.30 s |
 
-No misses on that defect. That is one mutant, not an evaluation — the corpus-wide
-figure is below and is not yet measured.
+Both numbers matter. Zero misses is the point of the tool; a 59.6% fallback
+rate is what that costs on this codebase, and it is reported here rather than
+in an appendix. An earlier run found a genuine miss — see D-0009 in
+[docs/DECISIONS.md](docs/DECISIONS.md) for the root cause and the rule that
+fixes it.
+
+Still unmeasured:
 
 | Metric | Value | Source |
 |---|---|---|
 | Runtime reduction across the corpus | TBD | TBD |
-| Selection ratio distribution | TBD | TBD |
+| Safety on scrapy | TBD | TBD |
 | Selection precision | TBD | TBD |
-| **Safety: misses / non-equivalent mutants** | **TBD** | TBD |
-| Fallback frequency by reason code | TBD | TBD |
 | p95 map lookup latency | TBD | TBD |
 
 ## Repository

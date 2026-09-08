@@ -116,9 +116,33 @@ The claim "tia is safe" is not made. What is made is a measurement:
 A single miss is a failure of the core guarantee and is root-caused
 individually in the report rather than averaged away.
 
-**Current status: TBD.** No safety figure is published yet. When one exists it
-will link to the committed JSON under `eval/results/` that produced it. There
-are no numbers in this document that were not measured.
+**Current status — attrs, 50 mutants, seed 1234**
+([`eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json`](../eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json)):
+
+| | |
+|---|---|
+| Mutants generated | 50 |
+| Equivalent (excluded) | 3 |
+| Non-equivalent | 47 |
+| **Misses** | **0** |
+| Fell back to the full suite | 28 of 47 (59.6%), all `IMPORT_TIME_LINE` |
+| Selection ratio, when selecting | median 0.7% (min 0.08%, max 99.9%) |
+| Full suite / selected, median | 3.97 s / 0.30 s |
+
+Read those two middle rows together. Zero misses is the result that matters,
+but it is bought by giving up line-level selection on **60% of changes** to this
+codebase. tia is safe here and, on well over half of these changes, no faster
+than simply running everything.
+
+**This figure is one repository and one run of 50.** It is not a claim about
+your codebase, and it is not enough mutants to put a confidence interval on.
+The corpus-wide result at 200+ mutants per repository is not yet measured.
+
+**An earlier run of this same experiment found a real miss** — one in 46 — and
+the fallback rule above is what fixes it. The root cause is written out in full
+in `docs/DECISIONS.md` under D-0009. It is worth reading before trusting any of
+this: it is a concrete example of a dependency that the map genuinely could not
+see.
 
 ## If you are deciding whether to use this
 
