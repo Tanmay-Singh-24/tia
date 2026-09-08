@@ -496,3 +496,115 @@ is the strongest argument yet that the Phase 2 import graph is load-bearing
 rather than an enhancement, and it should be presented as a finding, not
 buried: a conservative tool that gives up 60% of the time has an honest cost,
 and that cost is the headline of this experiment.
+
+---
+
+## D-0010 — Insertion handling: inserted lines are not resolvable, and we say so
+
+**Date:** 2026-09-09 · **Area:** diff/classifier · **Status:** accepted
+
+**Context.** The map speaks the line numbers of the commit it was built at. A
+diff hunk header `@@ -old_start,old_count +new_start,new_count @@` with
+`old_count == 0` describes lines that exist only on the new side. They have no
+old-side coordinate, so there is nothing to look up. This is the case a panel
+will probe, because getting it wrong is invisible: the lookup returns an empty
+set and the tool cheerfully selects nothing.
+
+**Options considered.**
+1. *Look up the new-side line numbers.* Wrong in a way that produces confident
+   nonsense: after an insertion the new numbers refer to different code in the
+   map, so tests get selected for lines that have nothing to do with the change.
+2. *Select the tests covering the straddling old lines* (`old_start` and
+   `old_start + 1`) and treat that as the answer. Plausible and unsound —
+   inserted code can call anything, and its dependencies need not resemble
+   those of its neighbours.
+3. *Straddling lines as a hint, plus file-level selection for that file.*
+4. *Full suite for any file containing an insertion.* Safest, and expensive:
+   almost every real commit inserts a line somewhere.
+
+**Decision.** Option 3, matching SPEC B.5. `diff.py` records
+`FileChange.insertions` whenever any hunk has `old_count == 0` and takes the two
+straddling old lines as a weak signal. The classifier then returns
+`INSERTION_NO_HISTORY` with file-level scope, so every test that has ever
+touched that file runs. New files, which are all insertion, take a different
+path: they are absent from the map entirely and fall back with `UNMAPPED_FILE`.
+
+A detail worth recording because it was wrong first: a newly added file's diff
+reads `@@ -0,0 +1,N @@`, and the straddling rule would invent old-side "lines"
+0 and 1 of a file that did not exist. Added files now carry an empty line set.
+`tests/test_diff.py::test_new_file_has_no_old_lines` pins it.
+
+**How we would know this was wrong.** If `INSERTION_NO_HISTORY` turns out to
+fire on nearly every commit, file-level selection is doing most of the work and
+the line-level machinery is not earning its complexity — in which case the
+honest report says the file-level tool is the product. The number to watch is
+the share of `INSERTION_NO_HISTORY` in the fallback breakdown over real
+historical commits.
+
+**Evidence.** `tests/test_diff.py` covers single-line edits, pure insertions,
+pure deletions, renames with edits, new files, binaries and merge commits
+against real repositories built in `tmp_path`.
+
+---
+
+## D-0011 — Map storage: measured before optimising
+
+**Date:** 2026-09-09 · **Area:** db · **Status:** accepted
+
+**Context.** SPEC B.4 anticipates the scale question — 3,000 tests × ~1,500
+covered lines each is on the order of 4–5 million rows — and explicitly says not
+to pre-optimise. The alternative design, held in reserve, replaces
+`coverage_line` with `(file_id, test_id, line_bits BLOB)`: a per-file line
+bitmap, the representation `coverage.py` uses internally.
+
+**Options considered.**
+1. *Row per (file, line, test)*, `WITHOUT ROWID`, indexed by test. Simple, and
+   every query in `db.py` is one readable SQL statement.
+2. *Per-file line bitmaps.* Far smaller and faster to union, but every query
+   becomes bit arithmetic, and `tia explain` — the feature that makes the
+   selection inspectable, which is the entire differentiator — turns into
+   decoding a blob.
+3. *A different store entirely* (LMDB, a columnar file). Rejected: a CLI tool
+   that demands database infrastructure will not be adopted, and stdlib
+   `sqlite3` is already there.
+
+**Decision.** Option 1 until measurement says otherwise. Measured on attrs
+(1,412 tests): **508,939 rows, 13.2 MB, built in about 10 seconds.** Selection
+against that map is fast enough that the wall-clock figures in the safety
+experiment are dominated by pytest startup, not by lookup.
+
+**How we would know this was wrong.** The reserve design becomes necessary if
+the map on the largest corpus repository exceeds roughly 500 MB, or if p95
+lookup latency for one changed file exceeds ~50 ms — at which point selection
+would start costing more than it saves on a fast suite.
+
+**Measured on scrapy, the largest corpus repository (4,371 tests, 328 files):**
+
+| | attrs | scrapy |
+|---|---|---|
+| Tests in the map | 1,334 | 4,371 |
+| `coverage_line` rows | 508,939 | **1,723,636** |
+| Map size | 13.2 MB | **47.5 MB** |
+| Map build (instrumented suite + write) | ~10 s | 81.4 s + 10.3 s |
+| Instrumentation slowdown | 2.2× | **1.63×** (49.85 s → 81.4 s) |
+| Lookup latency, median | — | **0.04 ms** |
+| Lookup latency, **p95** | — | **1.41 ms** |
+| Lookup latency, max | — | 2.51 ms |
+
+Latency was measured over 200 simulated five-line hunks sampled uniformly from
+covered lines across the map.
+
+Both thresholds are missed by more than an order of magnitude: 47.5 MB against
+a 500 MB budget, and 1.41 ms against 50 ms. The simple schema stands and the
+bitmap design stays on the shelf. Selection cost is irrelevant next to pytest's
+own startup, which is the real floor on these suites (D-0005).
+
+**A note on the slowdown.** attrs pays 2.2× under instrumentation while scrapy
+pays only 1.63×. That is the expected direction: scrapy's suite spends much of
+its time in I/O and Twisted's reactor rather than executing Python lines, and
+coverage only taxes the latter. A codebase whose tests are CPU-bound pays more
+to be mapped.
+
+**Evidence.** `tia status` in both corpus checkouts; the latency figures are
+reproducible with the sampling loop recorded in this session against
+`eval/.corpus/scrapy/repo/.tia/map.db`.

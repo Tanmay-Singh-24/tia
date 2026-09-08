@@ -123,10 +123,21 @@ def suite_env(spec: RepoSpec) -> dict[str, str]:
 
 
 def run_suite(
-    spec: RepoSpec, nodeids: list[str] | None, timeout_s: int, log_name: str
+    spec: RepoSpec,
+    nodeids: list[str] | None,
+    timeout_s: int,
+    log_name: str,
+    jobs: str | None = None,
 ) -> Ran:
-    """Run the whole suite, or just the given nodeids."""
+    """Run the whole suite, or just the given nodeids.
+
+    `jobs` is passed to xdist. On a repository whose suite takes minutes, a
+    serial experiment over 50 mutants would run for hours; the comparison stays
+    fair because the full run and the selected run use the same mode.
+    """
     command = [str(spec.bin / "pytest"), *spec.suite_args]
+    if jobs:
+        command += ["-n", jobs]
     if nodeids is not None:
         command += nodeids
     return run(
@@ -194,6 +205,7 @@ def evaluate_one(
     index: int,
     base: str,
     timeout_s: int,
+    jobs: str | None = None,
 ) -> MutantResult:
     """Inject one defect, then answer: does the selection catch what the suite does?"""
     result = MutantResult(
@@ -217,7 +229,9 @@ def evaluate_one(
             f"mutant {index}: {mutation.label}",
         )
 
-        full = run_suite(spec, None, timeout_s, f"{spec.name}_mutant{index}_full")
+        full = run_suite(
+            spec, None, timeout_s, f"{spec.name}_mutant{index}_full", jobs=jobs
+        )
         result.full_suite_exit = -1 if full.timed_out else full.exit_code
         result.full_suite_s = round(full.duration_s, 3)
 
@@ -256,7 +270,11 @@ def evaluate_one(
             return result
 
         selected = run_suite(
-            spec, nodeids, timeout_s, f"{spec.name}_mutant{index}_selected"
+            spec,
+            nodeids,
+            timeout_s,
+            f"{spec.name}_mutant{index}_selected",
+            jobs=jobs,
         )
         result.selected_exit = -1 if selected.timed_out else selected.exit_code
         result.selected_s = round(selected.duration_s, 3)
@@ -345,7 +363,14 @@ def summarise(results: list[MutantResult]) -> dict[str, Any]:
     }
 
 
-def safety(spec: RepoSpec, *, count: int, seed: int, timeout_s: int) -> dict[str, Any]:
+def safety(
+    spec: RepoSpec,
+    *,
+    count: int,
+    seed: int,
+    timeout_s: int,
+    jobs: str | None = None,
+) -> dict[str, Any]:
     """Run the safety experiment and write the results JSON."""
     map_file = db.map_path(spec.checkout)
     if not map_file.exists():
@@ -372,7 +397,7 @@ def safety(spec: RepoSpec, *, count: int, seed: int, timeout_s: int) -> dict[str
     started = time.perf_counter()
     results: list[MutantResult] = []
     for index, mutation in enumerate(mutations):
-        result = evaluate_one(spec, mutation, index, base, timeout_s)
+        result = evaluate_one(spec, mutation, index, base, timeout_s, jobs=jobs)
         results.append(result)
         marker = {
             OUTCOME_MISS: "MISS  <<<<",
@@ -401,6 +426,7 @@ def safety(spec: RepoSpec, *, count: int, seed: int, timeout_s: int) -> dict[str
         "map_commit": map_commit,
         "seed": seed,
         "requested": count,
+        "jobs": jobs,
         "duration_s": round(time.perf_counter() - started, 1),
         "machine": machine_info(),
         "suite_args": spec.suite_args,
@@ -461,10 +487,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--n", type=int, default=50, help="mutation sites to sample")
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--timeout", type=int, default=DEFAULT_SUITE_TIMEOUT_S)
+    parser.add_argument(
+        "--jobs",
+        default=None,
+        metavar="N",
+        help="xdist workers for both the full and selected runs (e.g. auto)",
+    )
     args = parser.parse_args(argv)
 
     spec = find_spec(args.repo)
-    payload = safety(spec, count=args.n, seed=args.seed, timeout_s=args.timeout)
+    payload = safety(
+        spec,
+        count=args.n,
+        seed=args.seed,
+        timeout_s=args.timeout,
+        jobs=args.jobs,
+    )
     report(payload)
     return 1 if payload["summary"]["misses"] else 0
 
