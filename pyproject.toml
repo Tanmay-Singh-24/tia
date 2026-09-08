@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tia-select"
+dynamic = ["version"]
+description = "Selective test execution for Python: run only the tests a change can affect, and fall back to the full suite whenever that cannot be established."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Tanmay Singh" }]
+keywords = ["testing", "pytest", "test-impact-analysis", "ci", "coverage"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+
+# SPEC B.1: runtime dependencies are exactly these four. Nothing else without
+# a DECISIONS.md entry.
+dependencies = [
+    "typer>=0.12",
+    "coverage>=7.4",
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "mypy>=1.10", "ruff>=0.5"]
+eval = ["pytest-xdist>=3.5", "pyyaml>=6.0"]
+
+[project.urls]
+Repository = "https://github.com/tanmaysingh/tia"
+
+[project.scripts]
+tia = "tia.cli:main"
+
+# The plugin form (`pytest --tia`) from SPEC B.7. Registered from day one so the
+# option surface is stable; the filtering itself lands in D7.
+[project.entry-points.pytest11]
+tia = "tia.plugin"
+
+[tool.hatch.version]
+path = "src/tia/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tia"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests", "eval"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RET", "ARG", "PTH", "ANN"]
+ignore = ["ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "ARG"]
+"eval/*" = ["ANN"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/tia"]
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,26 @@
+# tia's own working data — the map is a build artefact, never committed
+.tia/
+.coverage
+.coverage.*
+coverage.xml
+
+# corpus checkouts and their virtualenvs are large and reproducible from
+# eval/corpus.yaml; the *results* under eval/results/ are committed on purpose
+eval/.corpus/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# os
+.DS_Store
