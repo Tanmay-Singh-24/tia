@@ -3,10 +3,10 @@
 Run only the tests a change can affect. Run everything whenever that cannot be
 established.
 
-> **Status: pre-alpha.** The CLI surface is declared; the selection logic is not
-> implemented yet. `pytest --tia` currently runs the full suite and says so.
-> No performance or safety numbers are published yet — see
-> [Measured results](#measured-results).
+> **Status: working, pre-release.** Selection runs end to end. Safety
+> validation at scale (defect injection across the corpus) is not finished, so
+> the miss rate below is still `TBD` — see [Measured results](#measured-results)
+> and [docs/SAFETY.md](docs/SAFETY.md).
 
 ## What it does
 
@@ -30,6 +30,15 @@ pip install -e ".[dev,eval]"
 
 Requires Python 3.11+.
 
+## Getting started
+
+```bash
+tia init --package yourpackage   # write .tia.toml, create .tia/
+tia build                        # run the suite once under instrumentation
+tia select --explain             # see what a change selects, and why
+tia run                          # run just those tests
+```
+
 ## Usage
 
 ```
@@ -47,29 +56,57 @@ Exit codes: `0` success, `1` test failure, `2` usage error, `3` map unusable.
 ## Safety
 
 A tool that is fast but occasionally lets a defect through is worse than no
-tool. tia is conservative by construction: test files, `conftest.py`,
-dependency and build-config changes, non-source assets, unmapped files, a stale
-map and a missing map all fall back to the full suite, each with a machine
-readable reason code. How often that happens is measured and published, not
-hidden.
+tool. tia is conservative by construction: nine of the fourteen classifier
+rules deliberately give up the speed benefit and run everything. How often that
+happens is measured and published, not hidden.
 
 Complete certainty is not attainable in a dynamically typed language and is not
-claimed. See `docs/SAFETY.md` (written at D9) for what is guaranteed and what
-is not.
+claimed. **[docs/SAFETY.md](docs/SAFETY.md)** states exactly what is guaranteed,
+what is not, and how the residual risk is measured rather than asserted. Read
+it before using tia as a merge gate.
 
 ## Measured results
 
-Nothing here until the harness produces it. Every number published in this
-README will link to the committed JSON under `eval/results/` that produced it.
+Every number here was produced by the harness on this machine (Apple M4, 10
+cores, 16 GB, Python 3.12.10). Anything not yet measured says `TBD` rather than
+something plausible.
+
+**Corpus baselines** — median of 5 runs after a warmup, from
+[`eval/results/`](eval/results/):
+
+| repo | tests | `-n auto` | serial |
+|---|---|---|---|
+| scrapy | 5000 | 49.85 s | 204.85 s |
+| attrs | 1412 | 2.30 s | 3.93 s |
+
+**On attrs, one changed line** (`src/attr/_funcs.py`, single line edited):
+
+| Metric | Value |
+|---|---|
+| Map build | 1334 tests, 42 files, 508,908 rows, 13.3 MB, ~10 s |
+| Instrumentation slowdown | 2.2× (3.93 s → 8.55 s serial) |
+| Tests selected | 31 of 1334 |
+| Selected run | 0.82 s against a 3.93 s serial baseline |
+
+**Safety, single injected defect** (`return False` → `return True` in
+`attr._funcs.has`):
+
+| | failures | wall clock |
+|---|---|---|
+| Full suite | 31 | 8.15 s |
+| tia selection | 31 | 1.68 s |
+
+No misses on that defect. That is one mutant, not an evaluation — the corpus-wide
+figure is below and is not yet measured.
 
 | Metric | Value | Source |
 |---|---|---|
-| Runtime reduction (median) | TBD | TBD |
-| Selection ratio | TBD | TBD |
+| Runtime reduction across the corpus | TBD | TBD |
+| Selection ratio distribution | TBD | TBD |
 | Selection precision | TBD | TBD |
-| Safety: misses / non-equivalent mutants | TBD | TBD |
+| **Safety: misses / non-equivalent mutants** | **TBD** | TBD |
 | Fallback frequency by reason code | TBD | TBD |
-| Map build slowdown, size, p95 lookup | TBD | TBD |
+| p95 map lookup latency | TBD | TBD |
 
 ## Repository
 
