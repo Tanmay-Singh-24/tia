@@ -1,0 +1,87 @@
+# The corpus: real repositories tia is evaluated against.
+#
+# SHAs are pinned and MUST NOT be moved without a docs/DECISIONS.md entry —
+# reproducibility is the contribution (SPEC B.9). Every SHA below was the
+# repository's default-branch HEAD on the date in `pinned_at`, resolved with
+# `git ls-remote <url> HEAD`.
+#
+# `status` is set by measurement, never by assumption:
+#   candidate  — pinned, not yet run
+#   corpus     — measured green, selected for the corpus
+#   rejected   — measured, not selected; `reason` says why
+
+schema: 1
+
+defaults:
+  python: "3.12"
+  # -p no:randomly: stable ordering (SPEC B.9). -p no:cacheprovider: no
+  # cross-run state leaking into a timing measurement.
+  suite_args: ["-p", "no:randomly", "-p", "no:cacheprovider", "-q"]
+
+repos:
+  - name: attrs
+    url: https://github.com/python-attrs/attrs
+    sha: 8f767776326faaed11e6c2974798787f6e19b343
+    pinned_at: 2026-09-08
+    package: [attr, attrs]
+    # attrs declares test deps as a PEP 735 dependency-group, not an extra:
+    # `pip install -e ".[tests]"` silently installs nothing (pip 26.2.1).
+    install: ["pip install --group tests -e ."]
+    status: candidate
+
+  - name: rich
+    url: https://github.com/Textualize/rich
+    sha: 9d8f9a372cc5916fd4781fec207ced7ddac2f08f
+    pinned_at: 2026-09-08
+    package: [rich]
+    # rich declares dev deps under [tool.poetry.dev-dependencies], which pip
+    # cannot read; tests/test_pretty.py imports attr. TERM is set because the
+    # project's own Makefile runs `TERM=unknown pytest` — its output tests are
+    # terminal-sensitive.
+    install:
+      - "pip install -e ."
+      - "pip install pytest pytest-cov attrs typing-extensions"
+    env:
+      TERM: unknown
+    status: candidate
+
+  - name: flask
+    url: https://github.com/pallets/flask
+    sha: d73fa1cdcbd8b1465c151db8924ba58b1dd14e35
+    pinned_at: 2026-09-08
+    package: [flask]
+    install: ["pip install -e .", "pip install pytest"]
+    status: candidate
+
+  - name: httpx
+    url: https://github.com/encode/httpx
+    sha: b5addb64f0161ff6bfe94c124ef76f6a1fba5254
+    pinned_at: 2026-09-08
+    package: [httpx]
+    install: ["pip install -e .", "pip install -r requirements.txt"]
+    status: candidate
+
+  - name: black
+    url: https://github.com/psf/black
+    sha: 20622e1259c29bda81831962ace1348ba1921c84
+    pinned_at: 2026-09-08
+    package: [black, blib2to3]
+    # test_requirements.txt no longer exists at this SHA; black's test deps
+    # are a PEP 735 dependency-group.
+    install: ['pip install --group tests -e ".[d,jupyter]"']
+    status: candidate
+
+  - name: scrapy
+    url: https://github.com/scrapy/scrapy
+    sha: 3fd2a407cc32fd9e124545b8ac47c4c479292af6
+    pinned_at: 2026-09-08
+    package: [scrapy]
+    # tests/requirements.txt is gone at this SHA; the test dependencies live in
+    # tox.ini under [test-requirements], transcribed here verbatim.
+    install:
+      - "pip install -e ."
+      - "pip install attrs 'coverage>=7.10.6' httpx2 'pexpect>=4.8.0' psutil
+         'pyftpdlib>=2.0.1' pygments pytest 'pytest-cov>=7.0.0'
+         pytest-rerunfailures pytest-timeout pytest-xdist 'sybil>=1.3.0'
+         'pytest-twisted>=1.14.3'"
+    status: candidate

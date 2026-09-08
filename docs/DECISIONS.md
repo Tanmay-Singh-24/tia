@@ -105,3 +105,40 @@ decision has been violated. `tests/test_plugin.py` asserts both.
 
 **Evidence.** `tests/test_cli.py::test_command_is_a_stub_that_exits_two` and
 `tests/test_plugin.py::test_tia_flag_runs_the_full_suite_for_now`.
+
+---
+
+## D-0003 — Corpus checkouts are blobless partial clones, not shallow clones
+
+**Date:** 2026-09-08 · **Area:** eval/corpus · **Status:** accepted
+
+**Context.** D2 says "shallow-clone at a pinned SHA". A `--depth 1` clone is the
+cheapest way to get a working tree, but it discards history — and two later
+milestones need history on these same checkouts: D5 resolves `git merge-base`
+against an upstream branch, and the fallback-frequency experiment (SPEC B.9,
+metric 5) samples N real historical commits per repo. Re-cloning the corpus at
+week 10 would break the pinning story, because the repositories will have moved
+and the results already published would no longer be reproducible from the
+committed `corpus.yaml`.
+
+**Options considered.**
+1. *`--depth 1`* — smallest and fastest, but no merge-base, no historical
+   commits, and unshallowing later is a second full network fetch.
+2. *Full clone* — everything works, but pays for every blob of every revision
+   on six repositories, on a machine with 10 GiB free.
+3. *Blobless partial clone* (`--filter=blob:none`) — every commit and tree,
+   file contents fetched on demand at checkout.
+
+**Decision.** Option 3. `git clone --filter=blob:none --no-checkout` followed by
+`git checkout --detach <pinned sha>`. History is intact for D5 and for commit
+sampling; only the blobs actually checked out are transferred.
+
+**How we would know this was wrong.** If a partial clone makes later git
+operations pay repeated network round trips (a `git log -p` over sampled
+commits would), or if the corpus directory grows past what the disk allows, we
+switch to full clones of a smaller corpus. The check is cheap: time the
+historical-commit sampling in week 10 and compare against a full clone of one
+repo.
+
+**Evidence.** Corpus disk usage after preparation is recorded in the D2 session
+output and in `eval/results/baseline_*.json`.
