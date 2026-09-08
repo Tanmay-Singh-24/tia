@@ -27,7 +27,10 @@ repos:
     # attrs declares test deps as a PEP 735 dependency-group, not an extra:
     # `pip install -e ".[tests]"` silently installs nothing (pip 26.2.1).
     install: ["pip install --group tests -e ."]
-    status: candidate
+    status: corpus
+    reason: >-
+      Green, 1412 tests, 3.93s serial. The development corpus: fast
+      enough to run hundreds of mutants.
 
   - name: rich
     url: https://github.com/Textualize/rich
@@ -43,7 +46,11 @@ repos:
       - "pip install pytest pytest-cov attrs typing-extensions"
     env:
       TERM: unknown
-    status: candidate
+    status: rejected
+    reason: >-
+      Red at this SHA: 8 failures in syntax/markdown rendering from
+      Pygments version drift. Fixable by pinning Pygments, but the suite
+      is only 3.76s so it was not worth it.
 
   - name: flask
     url: https://github.com/pallets/flask
@@ -53,7 +60,10 @@ repos:
     # The async extra is required or tests/test_helpers.py::test_async_view
     # fails with "Install Flask with the 'async' extra".
     install: ['pip install -e ".[async,dotenv]"', "pip install pytest"]
-    status: candidate
+    status: rejected
+    reason: >-
+      Green but small: 494 tests, 0.66s serial. Below both the test-
+      count and the runtime criterion (see D-0006).
 
   - name: httpx
     url: https://github.com/encode/httpx
@@ -61,7 +71,11 @@ repos:
     pinned_at: 2026-09-08
     package: [httpx]
     install: ["pip install -e .", "pip install -r requirements.txt"]
-    status: candidate
+    status: rejected
+    reason: >-
+      Red at this SHA (one PytestUnraisableExceptionWarning promoted to
+      an error) and deadlocks under -n auto, stalling at ~86%. Cannot
+      supply the parallel baseline SPEC B.9 requires.
 
   - name: black
     url: https://github.com/psf/black
@@ -71,7 +85,10 @@ repos:
     # test_requirements.txt no longer exists at this SHA; black's test deps
     # are a PEP 735 dependency-group.
     install: ['pip install --group tests -e ".[d,jupyter]"']
-    status: candidate
+    status: reserve
+    reason: >-
+      Green, 22.76s serial - more substantial runtime than attrs despite
+      only 558 tests. Held as the third repo for Review 2.
 
   - name: scrapy
     url: https://github.com/scrapy/scrapy
@@ -96,4 +113,8 @@ repos:
     suite_args: ["-p", "no:randomly", "-p", "no:cacheprovider", "-q",
                  "scrapy", "tests", "--doctest-modules",
                  "--deselect", "tests/test_downloader_handler_httpx.py::TestRealWebsite"]
-    status: candidate
+    status: corpus
+    reason: >-
+      Green, 5000 tests, 204.85s serial / 49.85s -n auto. The primary
+      corpus: the only candidate whose runtime makes absolute savings
+      meaningful.

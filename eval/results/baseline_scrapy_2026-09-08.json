@@ -2,7 +2,7 @@
   "schema": 1,
   "experiment": "baseline",
   "generated_by": "eval/corpus.py",
-  "generated_at_utc": "2026-09-08T19:41:28+00:00",
+  "generated_at_utc": "2026-09-08T20:17:21+00:00",
   "repo": "scrapy",
   "url": "https://github.com/scrapy/scrapy",
   "sha": "3fd2a407cc32fd9e124545b8ac47c4c479292af6",
@@ -15,7 +15,9 @@
     "-q",
     "scrapy",
     "tests",
-    "--doctest-modules"
+    "--doctest-modules",
+    "--deselect",
+    "tests/test_downloader_handler_httpx.py::TestRealWebsite"
   ],
   "env": {},
   "install": [
@@ -33,27 +35,67 @@
   "collect": {
     "tests": 5000,
     "exit_code": 0,
-    "duration_s": 1.906
+    "duration_s": 1.663
   },
   "measurements": {
     "xdist_auto": {
-      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/scrapy/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q scrapy tests --doctest-modules -n auto",
-      "runs": 1,
-      "warmup_runs": 0,
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/scrapy/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q scrapy tests --doctest-modules --deselect tests/test_downloader_handler_httpx.py::TestRealWebsite -n auto",
+      "runs": 5,
+      "warmup_runs": 1,
       "durations_s": [
-        50.682
+        44.549,
+        46.041,
+        52.117,
+        52.942,
+        49.85
       ],
-      "median_s": 50.682,
-      "min_s": 50.682,
-      "max_s": 50.682,
-      "iqr_s": null,
+      "median_s": 49.85,
+      "min_s": 44.549,
+      "max_s": 52.942,
+      "iqr_s": [
+        45.295,
+        52.529
+      ],
       "timed_out": false,
       "timeout_s": 600,
       "exit_codes": [
-        1
+        0,
+        0,
+        0,
+        0,
+        0
       ],
-      "all_green": false
+      "all_green": true
+    },
+    "serial": {
+      "command": "/Users/tanmay/VSCode/tia/eval/.corpus/scrapy/.venv/bin/pytest -p no:randomly -p no:cacheprovider -q scrapy tests --doctest-modules --deselect tests/test_downloader_handler_httpx.py::TestRealWebsite",
+      "runs": 5,
+      "warmup_runs": 1,
+      "durations_s": [
+        206.103,
+        204.852,
+        204.607,
+        204.674,
+        205.953
+      ],
+      "median_s": 204.852,
+      "min_s": 204.607,
+      "max_s": 206.103,
+      "iqr_s": [
+        204.641,
+        206.028
+      ],
+      "timed_out": false,
+      "timeout_s": 600,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_green": true
     }
   },
-  "green": false
+  "green": true
 }
