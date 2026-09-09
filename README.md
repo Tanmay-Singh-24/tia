@@ -99,9 +99,19 @@ something plausible.
 | Selection ratio when selecting | median 0.7% |
 | Full suite / selected, median | 3.97 s / 0.30 s |
 
-Both numbers matter. Zero misses is the point of the tool; a 59.6% fallback
-rate is what that costs on this codebase, and it is reported here rather than
-in an appendix. An earlier run found a genuine miss — see D-0009 in
+**Net effect across all mutants, fallbacks included** (derived from the same
+JSONs — total suite time with tia against total without):
+
+| | attrs | scrapy |
+|---|---|---|
+| Without tia | 182.6 s | 570.0 s |
+| With tia | 98.4 s | 297.9 s |
+| **Net reduction** | **46.1%** | **47.7%** |
+| Median reduction when it does select | 93.6% | 93.8% |
+
+Both land inside the 40–70% range the proposal set out to validate, with zero
+misses. Zero misses is the point of the tool; the 59.6% fallback rate is what
+that costs, and it is reported here rather than in an appendix. An earlier run found a genuine miss — see D-0009 in
 [docs/DECISIONS.md](docs/DECISIONS.md) for the root cause and the rule that
 fixes it.
 

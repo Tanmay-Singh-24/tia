@@ -449,7 +449,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
 
   statCard(s, MARGIN, 2.35, 3.8, "0 / 47", "misses on attrs", GOOD, "50 mutants, seed 1234, 3 equivalent");
   statCard(s, 4.75, 2.35, 3.8, "0 / 14", "misses on scrapy", GOOD, "partial run of 17, recorded as incomplete");
-  statCard(s, 8.8, 2.35, 3.8, "59.6%", "of attrs mutants fell back", AMBER, "50% on scrapy — all IMPORT_TIME_LINE");
+  statCard(s, 8.8, 2.35, 3.8, "46% / 48%", "net wall-clock reduction", GOOD, "attrs / scrapy, fallbacks included");
 
   s.addChart(
     pres.ChartType.bar,
@@ -475,7 +475,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     x: 8.35, y: 4.35, w: 4.3, h: 0.32,
     fontFace: B, fontSize: 12, bold: true, color: INK, isTextBox: true, margin: 0,
   });
-  s.addText("Zero misses is the result that matters. It is bought by giving up line-level selection on roughly 60% of changes — where tia is no faster than simply running everything. Both numbers are published; neither is an appendix.", {
+  s.addText("Zero misses is the result that matters. It costs a fallback on ~60% of attrs changes, where tia runs everything. Even so, the net saving across all mutants is 46% on attrs and 48% on scrapy — inside the 40-70% the proposal set out to validate.", {
     x: 8.35, y: 4.7, w: 4.3, h: 1.7,
     fontFace: B, fontSize: 12, color: INK, lineSpacing: 18, isTextBox: true, margin: 0,
   });
@@ -560,11 +560,23 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
       { text: "On roughly 60% of changes to attrs, tia runs the whole suite — it is safe, and it is no faster than not using it.", options: { bullet: true, breakLine: true } },
       { text: "Every one of those fallbacks is IMPORT_TIME_LINE: a changed line that also ran during import, which coverage cannot attribute to any test.", options: { bullet: true, breakLine: true } },
       { text: "This is not a bug to hide. It is the measured price of the rule that removed our only known miss.", options: { bullet: true, breakLine: true } },
-      { text: "It also reframes Phase 2: the import graph is not an enhancement, it is what makes the safe version worth running. It can name the modules that imported a file and select their tests, instead of surrendering to the full suite.", options: { bullet: true } },
+      { text: "It reframes Phase 2: the import graph is not an enhancement, it is what makes the safe version worth running.", options: { bullet: true } },
     ],
-    { x: 6.3, y: 2.8, w: 6.3, h: 3.3, fontFace: B, fontSize: 12.5, color: INK, lineSpacing: 19, paraSpaceAfter: 9, isTextBox: true, margin: 0 }
+    { x: 6.3, y: 2.8, w: 6.3, h: 2.65, fontFace: B, fontSize: 12, color: INK, lineSpacing: 18, paraSpaceAfter: 8, isTextBox: true, margin: 0 }
   );
-  note(s, "A reviewer who asks 'did you get the 40-70% you targeted?' gets this slide: the distribution, the reason, and what we would do about it.");
+  s.addShape(pres.ShapeType.roundRect, {
+    x: 6.3, y: 5.62, w: 6.3, h: 1.05, rectRadius: 0.08,
+    fill: { color: INK }, line: { width: 0 },
+  });
+  s.addText("Net of every fallback: 46% faster on attrs, 48% on scrapy.", {
+    x: 6.6, y: 5.78, w: 5.8, h: 0.35,
+    fontFace: H, fontSize: 15, bold: true, color: PAPER, isTextBox: true, margin: 0,
+  });
+  s.addText("The proposal set out to validate a 40-70% range. Both land inside it.", {
+    x: 6.6, y: 6.14, w: 5.8, h: 0.35,
+    fontFace: B, fontSize: 12, color: "AFC0CE", isTextBox: true, margin: 0,
+  });
+  note(s, "A reviewer who asks 'did you get the 40-70% you targeted?' gets this slide: 46% and 48% net, the distribution behind it, the reason for the fallbacks, and what we would do about them. When tia does select, the median reduction on that change is 93.6%.");
 }
 
 // ---------------------------------------------------------------- 13. scope + next

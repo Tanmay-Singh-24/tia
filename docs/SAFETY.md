@@ -129,6 +129,11 @@ individually in the report rather than averaged away.
 | Selection ratio, when selecting | median 0.7% (min 0.08%, max 99.9%) |
 | Full suite / selected, median | 3.97 s / 0.30 s |
 
+Net of every fallback, the suite time across all non-equivalent mutants drops
+from 182.6 s to 98.4 s on attrs (**46.1%**) and from 570.0 s to 297.9 s on
+scrapy (**47.7%**). When selection does happen, the median reduction on that
+change is 93.6%.
+
 Read those two middle rows together. Zero misses is the result that matters,
 but it is bought by giving up line-level selection on **60% of changes** to this
 codebase. tia is safe here and, on well over half of these changes, no faster
