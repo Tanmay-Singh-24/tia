@@ -1,0 +1,454 @@
+{
+  "schema": 1,
+  "experiment": "safety",
+  "generated_by": "eval/harness.py",
+  "tia_version": "0.1.0.dev0",
+  "tia_commit": "346ffea4c589506f4aee67f357623a001a0c9ce7",
+  "generated_at_utc": "2026-09-09T00:28:42+00:00",
+  "complete": false,
+  "repo": "scrapy",
+  "url": "https://github.com/scrapy/scrapy",
+  "sha": "3fd2a407cc32fd9e124545b8ac47c4c479292af6",
+  "map_commit": "3fd2a407cc32fd9e124545b8ac47c4c479292af6",
+  "seed": 1234,
+  "requested": 30,
+  "jobs": "auto",
+  "duration_s": 1628.9,
+  "machine": {
+    "platform": "macOS-26.6.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M4",
+    "cpu_count": 10,
+    "memory_bytes": 17179869184,
+    "python": "3.12.10"
+  },
+  "suite_args": [
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--doctest-modules",
+    "--deselect",
+    "tests/test_downloader_handler_httpx.py::TestRealWebsite"
+  ],
+  "suite_paths": [
+    "scrapy",
+    "tests"
+  ],
+  "summary": {
+    "mutants_generated": 17,
+    "equivalent": 3,
+    "errors": 0,
+    "non_equivalent": 14,
+    "misses": 0,
+    "miss_rate": 0.0,
+    "fallback_count": 7,
+    "fallback_frequency": 0.5,
+    "fallback_by_reason": {
+      "IMPORT_TIME_LINE": 7
+    },
+    "selection_ratio": {
+      "n": 7,
+      "median": 0.003889,
+      "min": 0.000458,
+      "max": 0.20819,
+      "mean": 0.065104
+    },
+    "wall_clock_s": {
+      "full_suite_median": 45.953,
+      "selected_median": 2.616
+    },
+    "misses_detail": []
+  },
+  "mutants": [
+    {
+      "index": 0,
+      "mutation": {
+        "path": "scrapy/item.py",
+        "lineno": 118,
+        "family": "conditional_forcing",
+        "before": "key in self.fields",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 39.148,
+      "selected_exit": 1,
+      "selected_s": 3.139,
+      "selected_count": 187,
+      "total_tests": 4371,
+      "selection_ratio": 0.042782,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 1,
+      "mutation": {
+        "path": "scrapy/pipelines/files.py",
+        "lineno": 760,
+        "family": "conditional_forcing",
+        "before": "media_ext not in mimetypes.types_map",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 40.077,
+      "selected_exit": 1,
+      "selected_s": 2.616,
+      "selected_count": 16,
+      "total_tests": 4371,
+      "selection_ratio": 0.00366,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 2,
+      "mutation": {
+        "path": "scrapy/utils/signal.py",
+        "lineno": 68,
+        "family": "constant_perturbation",
+        "before": "\"receiver\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 41.256,
+      "selected_exit": 1,
+      "selected_s": 2.056,
+      "selected_count": 2,
+      "total_tests": 4371,
+      "selection_ratio": 0.000458,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 3,
+      "mutation": {
+        "path": "scrapy/extensions/feedexport.py",
+        "lineno": 655,
+        "family": "constant_perturbation",
+        "before": "\"format\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 41.818,
+      "selected_exit": 1,
+      "selected_s": 41.818,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 4,
+      "mutation": {
+        "path": "scrapy/utils/httpobj.py",
+        "lineno": 31,
+        "family": "return_replacement",
+        "before": "_urlparse_cache[request_or_response]",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": -1,
+      "full_suite_s": 900.013,
+      "selected_exit": -1,
+      "selected_s": 900.013,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 5,
+      "mutation": {
+        "path": "scrapy/core/downloader/handlers/_base_streaming.py",
+        "lineno": 164,
+        "family": "comparison_flip",
+        "before": ">",
+        "after": ">="
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 38.115,
+      "selected_exit": 1,
+      "selected_s": 38.115,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 6,
+      "mutation": {
+        "path": "scrapy/extensions/httpcache.py",
+        "lineno": 210,
+        "family": "constant_perturbation",
+        "before": "0",
+        "after": "1"
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 40.006,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    },
+    {
+      "index": 7,
+      "mutation": {
+        "path": "scrapy/extensions/remote_control.py",
+        "lineno": 295,
+        "family": "conditional_forcing",
+        "before": "out_was_truncated",
+        "after": "True"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 40.076,
+      "selected_exit": 1,
+      "selected_s": 2.314,
+      "selected_count": 17,
+      "total_tests": 4371,
+      "selection_ratio": 0.003889,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 8,
+      "mutation": {
+        "path": "scrapy/core/engine.py",
+        "lineno": 658,
+        "family": "constant_perturbation",
+        "before": "\"spider\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 41.264,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    },
+    {
+      "index": 9,
+      "mutation": {
+        "path": "scrapy/commands/parse.py",
+        "lineno": 60,
+        "family": "constant_perturbation",
+        "before": "\"use this spider without looking for one\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "equivalent",
+      "full_suite_exit": 0,
+      "full_suite_s": 42.077,
+      "selected_exit": null,
+      "selected_s": 0.0,
+      "selected_count": null,
+      "total_tests": null,
+      "selection_ratio": null,
+      "full_suite_selected": false,
+      "primary_reason": "",
+      "fallback_reasons": [],
+      "note": "full suite passed; mutant is equivalent or undetectable"
+    },
+    {
+      "index": 10,
+      "mutation": {
+        "path": "scrapy/core/downloader/handlers/__init__.py",
+        "lineno": 125,
+        "family": "constant_perturbation",
+        "before": "\"scheme\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 45.145,
+      "selected_exit": 1,
+      "selected_s": 13.201,
+      "selected_count": 858,
+      "total_tests": 4371,
+      "selection_ratio": 0.196294,
+      "full_suite_selected": false,
+      "primary_reason": "PACKAGE_INIT",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 11,
+      "mutation": {
+        "path": "scrapy/core/downloader/__init__.py",
+        "lineno": 258,
+        "family": "conditional_forcing",
+        "before": "meta_slot is not None",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 46.893,
+      "selected_exit": 1,
+      "selected_s": 2.921,
+      "selected_count": 910,
+      "total_tests": 4371,
+      "selection_ratio": 0.20819,
+      "full_suite_selected": false,
+      "primary_reason": "PACKAGE_INIT",
+      "fallback_reasons": [],
+      "note": ""
+    },
+    {
+      "index": 12,
+      "mutation": {
+        "path": "scrapy/downloadermiddlewares/redirect.py",
+        "lineno": 97,
+        "family": "comparison_flip",
+        "before": "<=",
+        "after": "<"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 46.987,
+      "selected_exit": 1,
+      "selected_s": 46.987,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 13,
+      "mutation": {
+        "path": "scrapy/utils/ssl.py",
+        "lineno": 108,
+        "family": "conditional_forcing",
+        "before": "keylog_filename := _get_keylog_filename()",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 46.76,
+      "selected_exit": 1,
+      "selected_s": 46.76,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 14,
+      "mutation": {
+        "path": "scrapy/core/downloader/handlers/_httpx.py",
+        "lineno": 214,
+        "family": "return_replacement",
+        "before": "response.aiter_raw()",
+        "after": "None"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 48.707,
+      "selected_exit": 1,
+      "selected_s": 48.707,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 15,
+      "mutation": {
+        "path": "scrapy/utils/decorators.py",
+        "lineno": 145,
+        "family": "conditional_forcing",
+        "before": "inspect.isasyncgenfunction(func)",
+        "after": "False"
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 46.826,
+      "selected_exit": 1,
+      "selected_s": 46.826,
+      "selected_count": 0,
+      "total_tests": 4371,
+      "selection_ratio": 1.0,
+      "full_suite_selected": true,
+      "primary_reason": "IMPORT_TIME_LINE",
+      "fallback_reasons": [
+        "IMPORT_TIME_LINE"
+      ],
+      "note": "fell back to the full suite"
+    },
+    {
+      "index": 16,
+      "mutation": {
+        "path": "scrapy/extensions/closespider.py",
+        "lineno": 112,
+        "family": "constant_perturbation",
+        "before": "\"itemcount\"",
+        "after": "\"tia-mutant\""
+      },
+      "outcome": "caught",
+      "full_suite_exit": 1,
+      "full_suite_s": 48.192,
+      "selected_exit": 1,
+      "selected_s": 2.391,
+      "selected_count": 2,
+      "total_tests": 4371,
+      "selection_ratio": 0.000458,
+      "full_suite_selected": false,
+      "primary_reason": "SELECTED",
+      "fallback_reasons": [],
+      "note": ""
+    }
+  ]
+}

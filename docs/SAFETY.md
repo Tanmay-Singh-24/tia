@@ -134,7 +134,13 @@ but it is bought by giving up line-level selection on **60% of changes** to this
 codebase. tia is safe here and, on well over half of these changes, no faster
 than simply running everything.
 
-**This figure is one repository and one run of 50.** It is not a claim about
+**Second repository — scrapy, 17 mutants** (a partial run, stopped early;
+`complete: false` in the JSON): 14 non-equivalent, **0 misses**, and **7 of 14
+(50%) fell back**, again every one `IMPORT_TIME_LINE`. Median selection ratio
+0.39%; full suite 45.95 s against 2.62 s for the selection. The fallback rate
+is the same story at 5,000 tests as at 1,400.
+
+**These figures are two repositories, one run each, and one of them partial.** It is not a claim about
 your codebase, and it is not enough mutants to put a confidence interval on.
 The corpus-wide result at 200+ mutants per repository is not yet measured.
 

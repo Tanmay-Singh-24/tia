@@ -105,12 +105,16 @@ in an appendix. An earlier run found a genuine miss — see D-0009 in
 [docs/DECISIONS.md](docs/DECISIONS.md) for the root cause and the rule that
 fixes it.
 
+**scrapy, 17 mutants** (partial run): 14 non-equivalent, **0 misses**, 7 of 14
+(50%) fell back with `IMPORT_TIME_LINE`. Full suite 45.95 s against 2.62 s
+selected.
+
 Still unmeasured:
 
 | Metric | Value | Source |
 |---|---|---|
 | Runtime reduction across the corpus | TBD | TBD |
-| Safety on scrapy | TBD | TBD |
+| Safety on scrapy at n=200 | TBD (17 run) | TBD |
 | Selection precision | TBD | TBD |
 | p95 map lookup latency | TBD | TBD |
 
