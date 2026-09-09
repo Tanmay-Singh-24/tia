@@ -110,9 +110,14 @@ repos:
     # TestRealWebsite fetches https://books.toscrape.com/ over live internet.
     # A baseline that depends on the network is not reproducible (and SPEC E.3
     # rules out network-dependent demos), so it is deselected and said so here.
+    # Flags apply to every run; paths only ever scope a whole-suite run.
+    # Passing the paths alongside a list of selected nodeids would collect the
+    # entire suite as well as the selection — a "selected" run that is really a
+    # full one, and a safety result that means nothing.
     suite_args: ["-p", "no:randomly", "-p", "no:cacheprovider", "-q",
-                 "scrapy", "tests", "--doctest-modules",
+                 "--doctest-modules",
                  "--deselect", "tests/test_downloader_handler_httpx.py::TestRealWebsite"]
+    suite_paths: ["scrapy", "tests"]
     status: corpus
     reason: >-
       Green, 5000 tests, 204.85s serial / 49.85s -n auto. The primary

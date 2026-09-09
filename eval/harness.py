@@ -138,7 +138,13 @@ def run_suite(
     command = [str(spec.bin / "pytest"), *spec.suite_args]
     if jobs:
         command += ["-n", jobs]
-    if nodeids is not None:
+    if nodeids is None:
+        # Whole-suite run: the paths scope what gets collected.
+        command += spec.suite_paths
+    else:
+        # Selected run: nodeids ONLY. Adding the paths here would collect the
+        # entire suite alongside the selection, so a "selected" run would in
+        # fact be a full one and every mutant would look caught.
         command += nodeids
     return run(
         command,
@@ -298,6 +304,42 @@ def evaluate_one(
         )
 
 
+def build_payload(
+    spec: RepoSpec,
+    results: list[MutantResult],
+    *,
+    seed: int,
+    count: int,
+    jobs: str | None,
+    map_commit: str,
+    started: float,
+    complete: bool,
+) -> dict[str, Any]:
+    """The results document. Written after every mutant, not just at the end."""
+    return {
+        "schema": RESULT_SCHEMA,
+        "experiment": "safety",
+        "generated_by": "eval/harness.py",
+        "tia_version": tia_version(),
+        "tia_commit": tia_commit(),
+        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+        "complete": complete,
+        "repo": spec.name,
+        "url": spec.url,
+        "sha": spec.sha,
+        "map_commit": map_commit,
+        "seed": seed,
+        "requested": count,
+        "jobs": jobs,
+        "duration_s": round(time.perf_counter() - started, 1),
+        "machine": machine_info(),
+        "suite_args": spec.suite_args,
+        "suite_paths": spec.suite_paths,
+        "summary": summarise(results),
+        "mutants": [r.as_dict() for r in results],
+    }
+
+
 def summarise(results: list[MutantResult]) -> dict[str, Any]:
     """The headline numbers. Misses are listed, never averaged away."""
     equivalent = [r for r in results if r.outcome == OUTCOME_EQUIVALENT]
@@ -392,13 +434,40 @@ def safety(
 
     rng = random.Random(seed)
     mutations = sample_sites(spec, count, rng)
-    print(f"[{spec.name}] sampled {len(mutations)} mutation sites from covered lines")
+    print(
+        f"[{spec.name}] sampled {len(mutations)} mutation sites from covered lines",
+        flush=True,
+    )
 
     started = time.perf_counter()
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
+    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}.json"
+
     results: list[MutantResult] = []
     for index, mutation in enumerate(mutations):
         result = evaluate_one(spec, mutation, index, base, timeout_s, jobs=jobs)
         results.append(result)
+
+        # Checkpoint after every mutant. An experiment that only writes its
+        # results at the end loses everything when it is interrupted, and a run
+        # measured in hours will be interrupted.
+        out.write_text(
+            json.dumps(
+                build_payload(
+                    spec,
+                    results,
+                    seed=seed,
+                    count=count,
+                    jobs=jobs,
+                    map_commit=map_commit,
+                    started=started,
+                    complete=index + 1 == len(mutations),
+                ),
+                indent=2,
+            )
+            + "\n"
+        )
         marker = {
             OUTCOME_MISS: "MISS  <<<<",
             OUTCOME_CAUGHT: "caught",
@@ -408,41 +477,27 @@ def safety(
         selected = (
             "full" if result.full_suite_selected else str(result.selected_count or "-")
         )
+        elapsed = time.perf_counter() - started
+        rate = elapsed / (index + 1)
+        remaining = rate * (len(mutations) - index - 1)
         print(
             f"[{spec.name}] {index + 1:>3}/{len(mutations)} {marker:11} "
-            f"selected={selected:>5}  {mutation.label}"
+            f"selected={selected:>5}  ~{remaining / 60:.0f}m left  {mutation.label}",
+            flush=True,
         )
 
-    payload: dict[str, Any] = {
-        "schema": RESULT_SCHEMA,
-        "experiment": "safety",
-        "generated_by": "eval/harness.py",
-        "tia_version": tia_version(),
-        "tia_commit": tia_commit(),
-        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-        "repo": spec.name,
-        "url": spec.url,
-        "sha": spec.sha,
-        "map_commit": map_commit,
-        "seed": seed,
-        "requested": count,
-        "jobs": jobs,
-        "duration_s": round(time.perf_counter() - started, 1),
-        "machine": machine_info(),
-        "suite_args": spec.suite_args,
-        "summary": summarise(results),
-        "mutants": [r.as_dict() for r in results],
-    }
-
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    # The filename carries the seed and a timestamp. An earlier version keyed
-    # on the date alone, and a same-day re-run silently overwrote the result it
-    # was meant to be compared against — destroying the evidence for a miss.
-    # Results are the deliverable; they are never clobbered.
-    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}.json"
+    payload = build_payload(
+        spec,
+        results,
+        seed=seed,
+        count=count,
+        jobs=jobs,
+        map_commit=map_commit,
+        started=started,
+        complete=True,
+    )
     out.write_text(json.dumps(payload, indent=2) + "\n")
-    print(f"[{spec.name}] wrote {out.relative_to(ROOT)}")
+    print(f"[{spec.name}] wrote {out.relative_to(ROOT)}", flush=True)
     return payload
 
 

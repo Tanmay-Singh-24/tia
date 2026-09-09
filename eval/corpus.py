@@ -66,6 +66,13 @@ class RepoSpec:
     package: list[str] = field(default_factory=list)
     python: str = "3.12"
     suite_args: list[str] = field(default_factory=list)
+    """Flags applied to EVERY run, whole-suite or selected."""
+
+    suite_paths: list[str] = field(default_factory=list)
+    """Paths that scope the whole suite. Never passed alongside nodeids: doing
+    so collects the entire suite *in addition to* the selection, which silently
+    turns a selected run into a full one."""
+
     env: dict[str, str] = field(default_factory=dict)
     status: str = "candidate"
     reason: str = ""
@@ -100,6 +107,7 @@ def load_corpus(path: Path = CORPUS_YAML) -> list[RepoSpec]:
                 package=list(merged.get("package", [])),
                 python=str(merged.get("python", "3.12")),
                 suite_args=list(merged.get("suite_args", [])),
+                suite_paths=list(merged.get("suite_paths", [])),
                 env={str(k): str(v) for k, v in (merged.get("env") or {}).items()},
                 status=merged.get("status", "candidate"),
                 reason=merged.get("reason", ""),
@@ -318,7 +326,12 @@ def collect_tests(
     # into -qq, which replaces the "N tests collected" summary with per-file
     # counts. Both forms are parsed below regardless.
     result = run(
-        [str(spec.bin / "pytest"), *spec.suite_args, "--collect-only"],
+        [
+            str(spec.bin / "pytest"),
+            *spec.suite_args,
+            *spec.suite_paths,
+            "--collect-only",
+        ],
         cwd=spec.checkout,
         env=venv_env(spec),
         timeout_s=timeout_s,
@@ -344,7 +357,7 @@ def time_suite(
 ) -> dict[str, Any]:
     """Time the full suite `runs` times. `jobs` is the -n value, or None for serial."""
     extra = ["-n", jobs] if jobs else []
-    command = [str(spec.bin / "pytest"), *spec.suite_args, *extra]
+    command = [str(spec.bin / "pytest"), *spec.suite_args, *spec.suite_paths, *extra]
     label = f"n{jobs}" if jobs else "serial"
     env = venv_env(spec)
 
@@ -474,6 +487,7 @@ def baseline(
         "sha": spec.sha,
         "pinned_at": spec.pinned_at,
         "suite_args": spec.suite_args,
+        "suite_paths": spec.suite_paths,
         "env": spec.env,
         "install": spec.install,
         "machine": machine_info(),
