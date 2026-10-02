@@ -8,14 +8,14 @@ dynamic = ["version"]
 description = "Selective test execution for Python: run only the tests a change can affect, and fall back to the full suite whenever that cannot be established."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Tanmay Singh" }]
 keywords = ["testing", "pytest", "test-impact-analysis", "ci", "coverage"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
@@ -50,6 +50,10 @@ path = "src/tia/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tia"]
+
+[tool.hatch.build.targets.sdist]
+# The evaluation is the contribution, so it ships with the source distribution.
+include = ["src", "tests", "eval", "docs", "scripts", "README.md", "LICENSE", "Makefile"]
 
 [tool.ruff]
 line-length = 88

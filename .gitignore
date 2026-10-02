@@ -24,3 +24,6 @@ venv/
 
 # os
 .DS_Store
+
+dist/
+build/
