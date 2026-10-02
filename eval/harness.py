@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import statistics
 import subprocess
 import sys
@@ -77,6 +78,19 @@ class MutantResult:
     full_suite_selected: bool = False
     primary_reason: str = ""
     fallback_reasons: list[str] = field(default_factory=list)
+    failing_tests: int | None = None
+    """How many tests the FULL suite failed on this mutant."""
+
+    failing_selected: int | None = None
+    """How many of those the selection also contained."""
+
+    precision: float | None = None
+    """|F and S| / |S| (SPEC B.9 metric 3).
+
+    The stated limitation: this proxies "genuinely related to the change" with
+    "actually fails", which understates precision for a test that exercises the
+    changed line without asserting on its result."""
+
     note: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -120,6 +134,14 @@ def suite_env(spec: RepoSpec) -> dict[str, str]:
     existing .pyc — but together they close the hole.
     """
     return {**venv_env(spec), "PYTHONDONTWRITEBYTECODE": "1"}
+
+
+FAILED_RE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+?)(?:\s+-.*)?$", re.MULTILINE)
+
+
+def failing_nodeids(output: str) -> set[str]:
+    """Nodeids pytest reported as failed, from its short summary."""
+    return {m.group(1) for m in FAILED_RE.finditer(output)}
 
 
 def run_suite(
@@ -251,6 +273,8 @@ def evaluate_one(
         )
         result.full_suite_exit = -1 if full.timed_out else full.exit_code
         result.full_suite_s = round(full.duration_s, 3)
+        failed = failing_nodeids(full.stdout + full.stderr)
+        result.failing_tests = len(failed) or None
 
         if full.exit_code == 0 and not full.timed_out:
             # The suite cannot tell this mutant from the original. Excluded from
@@ -281,6 +305,14 @@ def evaluate_one(
             return result
 
         nodeids = list(decision["selected"])
+
+        # SPEC B.9 metric 3. Measured only where tia actually selected: on a
+        # fallback the selection is the whole suite and precision is trivially
+        # the base rate, which would flatter the average.
+        if failed and nodeids:
+            hit = failed & set(nodeids)
+            result.failing_selected = len(hit)
+            result.precision = round(len(hit) / len(nodeids), 4)
         if not nodeids:
             result.outcome = OUTCOME_MISS
             result.note = "selection was empty while the full suite failed"
@@ -379,6 +411,33 @@ def _net_reduction(results: list[MutantResult]) -> dict[str, Any]:
     }
 
 
+def _precision(results: list[MutantResult]) -> dict[str, Any]:
+    """Selection precision over the mutants where tia actually selected."""
+    scored = [r for r in results if r.precision is not None]
+    if not scored:
+        return {"n": 0}
+    values = sorted(r.precision for r in scored if r.precision is not None)
+    recall_complete = sum(
+        1
+        for r in scored
+        if r.failing_tests is not None and r.failing_selected == r.failing_tests
+    )
+    return {
+        "n": len(scored),
+        "median": round(statistics.median(values), 4),
+        "mean": round(statistics.fmean(values), 4),
+        "min": values[0],
+        "max": values[-1],
+        "selections_containing_every_failing_test": recall_complete,
+        "note": (
+            "precision = |failing and selected| / |selected|, measured only on "
+            "mutants where tia selected rather than fell back. It proxies "
+            "'related to the change' with 'actually fails', which understates "
+            "it for tests that exercise the changed line without asserting on it."
+        ),
+    }
+
+
 def summarise(results: list[MutantResult]) -> dict[str, Any]:
     """The headline numbers. Misses are listed, never averaged away."""
     equivalent = [r for r in results if r.outcome == OUTCOME_EQUIVALENT]
@@ -427,6 +486,7 @@ def summarise(results: list[MutantResult]) -> dict[str, Any]:
         # them with a hand-picked duration threshold, which silently changed
         # the answer when the timeout setting changed.)
         "net_reduction": _net_reduction(non_equivalent),
+        "precision": _precision(non_equivalent),
         "wall_clock_s": {
             "full_suite_median": (
                 round(statistics.median([r.full_suite_s for r in non_equivalent]), 3)
@@ -598,6 +658,16 @@ def report(payload: dict[str, Any]) -> None:
             )
         )
         print(f"  median per mutant        {net['median_per_mutant']:.1%}")
+    prec = s["precision"]
+    if prec.get("n"):
+        print(
+            f"\n  selection precision      median {prec['median']:.1%} "
+            f"(mean {prec['mean']:.1%}, n={prec['n']})"
+        )
+        print(
+            f"  selections containing every failing test: "
+            f"{prec['selections_containing_every_failing_test']}/{prec['n']}"
+        )
     if s["misses"]:
         print("\n  MISSES — each must be root-caused individually:")
         for miss in s["misses_detail"]:
