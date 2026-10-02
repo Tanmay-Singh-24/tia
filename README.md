@@ -22,21 +22,18 @@ prints the chain from changed line to covering test to reason code.
 
 ## Install
 
-Not published yet. From a clone:
+```bash
+pip install tia-select
+```
+
+Requires Python 3.11+. The command is `tia`; the distribution is `tia-select`
+because `tia` was taken. Installing also registers the pytest plugin, so
+`pytest --tia` works straight away.
+
+From a clone, for development or to run the evaluation:
 
 ```bash
 pip install -e ".[dev,eval]"
-```
-
-Requires Python 3.11+.
-
-## Getting started
-
-```bash
-tia init --package yourpackage   # write .tia.toml, create .tia/
-tia build                        # run the suite once under instrumentation
-tia select --explain             # see what a change selects, and why
-tia run                          # run just those tests
 ```
 
 ## Usage

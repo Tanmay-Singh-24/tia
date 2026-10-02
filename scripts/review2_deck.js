@@ -445,14 +445,14 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
       "docs/DECISIONS.md — 13 dated decisions, each with a falsification condition",
       "eval/results/ — raw JSON for every published number",
       "make reproduce — regenerates the tables from the pinned corpus",
+      "pip install tia-select — published, 0.1.0",
       "github.com/Tanmay-Singh-24/tia — public, CI green on 3.11 and 3.12",
     ] },
     { x: 9.0, head: "Next", color: ACCENT, items: [
       "Fallback frequency over sampled historical commits",
       "Sweep the closure limit against net reduction",
       "Third corpus repository (black, held in reserve)",
-      "PyPI release as tia-select",
-      "Incremental map updates, so a stale map need not mean the full suite",
+            "Incremental map updates, so a stale map need not mean the full suite",
     ] },
   ];
   cols.forEach((c) => {
