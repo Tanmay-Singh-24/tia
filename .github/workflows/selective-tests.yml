@@ -33,30 +33,41 @@ jobs:
 
       - run: pip install -e ".[dev,eval]"
 
-      - name: Build the map
+      - name: Work out what we are diffing against
+        id: base
         run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="HEAD~1"
+          fi
+          echo "base=$(git rev-parse "$BASE")" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the map at the base commit
+        run: |
+          # A map is built from the code as it was BEFORE the change — that is
+          # the whole point. Building it at HEAD would make the map newer than
+          # the diff base, and the classifier would correctly refuse it as
+          # MAP_STALE.
+          git checkout -q ${{ steps.base.outputs.base }}
           tia init
           tia build
+          git checkout -q ${{ steps.base.outputs.head }}
 
       - name: Map summary
         run: tia status
 
       - name: What would tia select for this change?
-        id: select
         run: |
-          BASE="${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
-          echo "diffing against $BASE"
-          tia select --base "$BASE" --explain || true
-          tia select --base "$BASE" --format json > selection.json || true
+          tia select --base ${{ steps.base.outputs.base }} --explain
+          tia select --base ${{ steps.base.outputs.base }} --format json > selection.json
           cat selection.json
 
       - name: Run the selected tests through the plugin
-        run: |
-          BASE="${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
-          pytest --tia --tia-base="$BASE" -q
+        run: pytest --tia --tia-base=${{ steps.base.outputs.base }} -q
 
       - name: Full suite, as the safety net
-        id: full
         run: pytest -q
 
       - name: Publish the selection as a build artefact
