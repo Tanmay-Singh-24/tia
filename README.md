@@ -1,89 +1,141 @@
-# tia — test impact analysis for Python
+<h1 align="center">tia</h1>
 
-Run only the tests a change can affect. Run everything whenever that cannot be
-established.
+<p align="center">
+  <strong>Run only the tests your change can actually affect.</strong><br>
+  And run <em>everything</em> whenever that can't be proven safe.
+</p>
 
-> **Status: working, pre-release.** Selection runs end to end. Safety
-> validation at scale (defect injection across the corpus) is not finished, so
-> the miss rate below is still `TBD` — see [Measured results](#measured-results)
-> and [docs/SAFETY.md](docs/SAFETY.md).
+<p align="center">
+  <a href="https://pypi.org/project/tia-select/"><img alt="PyPI" src="https://img.shields.io/pypi/v/tia-select?color=2E7D62&label=pypi"></a>
+  <a href="https://pypi.org/project/tia-select/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/tia-select?color=2E7D62"></a>
+  <a href="https://github.com/Tanmay-Singh-24/tia/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Tanmay-Singh-24/tia/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="Licence" src="https://img.shields.io/badge/licence-MIT-blue"></a>
+  <br>
+  <img alt="Misses" src="https://img.shields.io/badge/missed%20defects-0%20of%20211-2E7D62">
+  <img alt="Suite time" src="https://img.shields.io/badge/test%20time-%E2%88%9265.2%25%20on%20scrapy-2E7D62">
+</p>
 
-## What it does
+---
 
-1. **Learning (once).** Runs the suite under `coverage.py` with dynamic contexts
-   and persists, for every source line, the set of tests that executed it. The
-   map lives in `.tia/map.db`, keyed to the commit it was built at.
-2. **Selection (every change).** Asks git which lines changed, classifies each
-   changed path, looks the trustworthy ones up in the map, and hands pytest that
-   subset. Everything else falls back to the full suite with a reason code.
+You change one line. Your CI runs all 4,371 tests and you wait a minute. Maybe
+thirty of those tests could possibly be touched by what you changed — the rest
+examine the payment path, the CLI, the export code. They pass. They always
+pass. They ran anyway.
 
-The selection logic is meant to be read, not trusted: `tia select --explain`
-prints the chain from changed line to covering test to reason code.
+tia watches your suite once to learn which tests touch which lines, then uses
+that map to run just the affected ones. When it can't be sure, it runs
+everything and tells you exactly why.
 
-## Install
+```console
+$ tia select --explain
+
+src/attr/_funcs.py line 377
+  -> SELECTED: project source present in a fresh map; tests chosen by line
+     tests/test_funcs.py::TestAsDict::test_dicts
+     tests/test_funcs.py::TestAsDict::test_nested_lists
+     tests/test_hooks.py::TestAsDictHook::test_asdict
+     ... and 28 more
+
+tia: selected 31 of 1,334 tests
+```
+
+```console
+$ tia run
+31 passed, 1381 deselected in 0.98s        # the full suite takes 3.93s
+```
+
+## Quick start
 
 ```bash
 pip install tia-select
 ```
 
-Requires Python 3.11+. The command is `tia`; the distribution is `tia-select`
-because `tia` was taken. Installing also registers the pytest plugin, so
-`pytest --tia` works straight away.
+```bash
+tia init     # create .tia.toml
+tia build    # watch the suite once, build the map
+tia run      # from now on, run only what matters
+```
 
-From a clone, for development or to run the evaluation:
+In CI, use the pytest plugin directly:
 
 ```bash
-pip install -e ".[dev,eval]"
+pytest --tia --tia-base=origin/main
 ```
 
-## Usage
+That's it. Python 3.11+, works with any pytest suite.
 
-```
-tia init                     write .tia.toml, create .tia/, add to .gitignore
-tia build [--suite CMD] [--jobs N]     run the instrumented suite, build the map
-tia select [--base REV] [--format nodeids|json] [--explain]
-tia run [--base REV] -- <pytest args>
-tia status                   map freshness, commit, size, test count, age
-tia explain PATH:LINE        which tests cover this line, and why
-pytest --tia [--tia-base=REV]          plugin form, for CI
-```
+## Does it actually work?
 
-Exit codes: `0` success, `1` test failure, `2` usage error, `3` map unusable.
+Fair question — that's the whole point of this project, so here are the
+numbers rather than adjectives.
 
-## Safety
+| | attrs | scrapy |
+|---|---|---|
+| Suite | 1,334 tests, 3.9 s | 4,371 tests, 62 s |
+| Defects deliberately injected | 184 | 27 |
+| **Defects it let through** | **0** | **0** |
+| Test time saved | 58.4% | **65.2%** |
+| Changes where it gave up and ran everything | 50.5% | 29.6% |
 
-A tool that is fast but occasionally lets a defect through is worse than no
-tool. tia is conservative by construction: nine of the fourteen classifier
-rules deliberately give up the speed benefit and run everything. How often that
-happens is measured and published, not hidden.
+**It helps most where your suite is slow.** On scrapy's 62-second suite it
+saves two thirds of the time. On a four-second suite it saves almost nothing,
+because starting pytest at all is most of the cost. If your suite finishes in
+seconds, you don't need this.
 
-Complete certainty is not attainable in a dynamically typed language and is not
-claimed. **[docs/SAFETY.md](docs/SAFETY.md)** states exactly what is guaranteed,
-what is not, and how the residual risk is measured rather than asserted. Read
-it before using tia as a merge gate.
+## It has let defects through before
 
-## Measured results
+Twice. Both were caught by its own evaluation harness, and both are written up
+in full:
 
-Every number here was produced by the harness on this machine (Apple M4, 10
-cores, 16 GB, Python 3.12.10). Anything not yet measured says `TBD` rather than
-something plausible.
+- **[D-0009](docs/DECISIONS.md)** — a test created its fixtures at import time,
+  so coverage attributed the line to no test at all and six dependent tests
+  were never selected.
+- **[D-0014](docs/DECISIONS.md)** — the fix for D-0009 was itself too slow, so
+  we added an import graph; the graph then re-opened the same hole. Found only
+  when the sample went from 50 injected defects to 200.
 
-**Corpus baselines** — median of 5 runs after a warmup, from
-[`eval/results/`](eval/results/):
+That's why there's a fallback rate in the table above, and why ten of the
+eighteen possible outcomes deliberately give up the speed benefit. A tool that is
+fast but occasionally lets a bug through is worse than no tool, because it
+manufactures confidence.
 
-| repo | tests | `-n auto` | serial |
-|---|---|---|---|
-| scrapy | 5000 | 49.85 s | 204.85 s |
-| attrs | 1412 | 2.30 s | 3.93 s |
+**[docs/SAFETY.md](docs/SAFETY.md)** says exactly what is and isn't guaranteed.
+Please read it before using tia as a merge gate.
 
-**On attrs, one changed line** (`src/attr/_funcs.py`, single line edited):
+## How it works
 
-| Metric | Value |
+**Watch once.** `tia build` runs your suite under `coverage.py` with dynamic
+contexts, recording which tests executed which lines, and inverts that into a
+map in `.tia/map.db`.
+
+**Then ask.** On each change, git reports the changed lines, twelve rules
+decide what can be trusted, and the map answers the rest. Anything uncertain —
+a changed dependency, a config file, a stale map, a line that ran at import
+time — runs the whole suite with a reason code you can read.
+
+**Plus an import graph.** A line that executed during import belongs to no
+test, so the map can't resolve it. The static import graph names the modules
+that import the changed file and selects their tests instead — unless the
+closure grows past 60% of the suite, at which point running everything is
+cheaper than being clever.
+
+## Commands
+
+| | |
 |---|---|
-| Map build | 1334 tests, 42 files, 508,908 rows, 13.3 MB, ~10 s |
-| Instrumentation slowdown | 2.2× (3.93 s → 8.55 s serial) |
-| Tests selected | 31 of 1334 |
-| Selected run | 0.82 s against a 3.93 s serial baseline |
+| `tia init` | write `.tia.toml`, create `.tia/` |
+| `tia build` | watch the suite, build the map |
+| `tia select` | show what would run — `--explain`, `--format json` |
+| `tia run` | select, then run |
+| `tia status` | map freshness, size, test count |
+| `tia explain PATH:LINE` | which tests cover this line, and why |
+| `pytest --tia` | the plugin form, for CI |
+
+Exit codes: `0` success, `1` test failure, `2` usage error, `3` map unusable —
+and `tia run` falls back to the full suite rather than failing, because a
+broken map must never mean "no tests ran".
+
+## The evidence
 
 **Safety validation.** One defect injected at a time; the full suite must catch
 it or the mutant is excluded as equivalent; then the selection runs. If the
@@ -126,12 +178,28 @@ Results: [`safety_attrs_2026-10-02T161902Z_seed2026_nograph.json`](eval/results/
 codebase, and whether 0.6 is the right closure limit. No published number moves
 without the JSON that produced it.
 
-## Repository
+## Reproduce it yourself
 
-- `docs/SPEC.md` — the specification this implementation follows.
-- `docs/DECISIONS.md` — dated decision log with falsification conditions.
-- `eval/` — the evaluation harness and its committed results.
+```bash
+git clone https://github.com/Tanmay-Singh-24/tia && cd tia
+pip install -e ".[dev,eval]"
+make reproduce
+```
+
+That clones the pinned corpus, rebuilds both maps and re-runs every experiment.
+The repositories are pinned to exact commits, so the numbers above are the
+numbers you get.
+
+## Reading the repository
+
+| | |
+|---|---|
+| **[docs/SAFETY.md](docs/SAFETY.md)** | what is guaranteed, what is not, how the risk is measured |
+| **[docs/DECISIONS.md](docs/DECISIONS.md)** | 14 dated decisions, each with what would prove it wrong |
+| **[docs/SPEC.md](docs/SPEC.md)** | the specification this implements |
+| **[eval/results/](eval/results/)** | raw JSON behind every number published here |
+| **[src/tia/classifier.py](src/tia/classifier.py)** | the twelve rules, in one readable file |
 
 ## Licence
 
-MIT.
+MIT. Built as a B.Tech capstone project at VIT Bhopal.

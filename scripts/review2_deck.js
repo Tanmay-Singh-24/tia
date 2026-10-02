@@ -244,7 +244,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     { x: 6.9, y: 2.15, w: 5.7, h: 2.2, fontFace: B, fontSize: 11.5, color: "CFDAE3", paraSpaceAfter: 6, isTextBox: true, margin: 0 }
   );
   s.addShape(pres.ShapeType.roundRect, { x: MARGIN, y: 4.6, w: 11.9, h: 1.0, rectRadius: 0.08, fill: { color: "223141" }, line: { width: 0 } });
-  s.addText("9 of the 16 rules deliberately give up the speed benefit. That is the design, not a shortfall in it.", {
+  s.addText("10 of the 18 possible outcomes deliberately give up the speed benefit. That is the design, not a shortfall in it.", {
     x: MARGIN + 0.35, y: 4.8, w: 11.2, h: 0.6, fontFace: H, fontSize: 17, bold: true, color: PAPER, isTextBox: true, margin: 0,
   });
   s.addText("Silent misses are the only unacceptable failure. A fast tool that occasionally lets a defect through is worse than no tool, because it manufactures confidence. When in doubt, run everything — and record why.", {
