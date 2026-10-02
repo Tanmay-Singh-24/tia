@@ -116,26 +116,26 @@ The claim "tia is safe" is not made. What is made is a measurement:
 A single miss is a failure of the core guarantee and is root-caused
 individually in the report rather than averaged away.
 
-**Current status — both corpus repositories, seed 1234**
+**Current status — both corpus repositories**
 
-| | attrs | scrapy |
-|---|---|---|
-| Tests in the suite | 1,334 | 4,371 |
-| Baseline suite time | 3.93 s | 62.6 s |
-| Non-equivalent mutants | 47 | 27 |
-| **Misses** | **0** | **0** |
-| Fallback, without the import graph | 59.6% | 59.3% |
-| Fallback, with it | **51.1%** | **29.6%** |
-| Net time reduction, without | 46.2% | 38.8% |
-| Net time reduction, with | **50.7%** | **66.3%** |
+| | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
+|---|---|---|---|---|
+| Non-equivalent defects | 184 | 184 | 27 | 27 |
+| **Misses** | **0** | **0** | **0** | **0** |
+| Fallback frequency | 52.7% | 50.5% | 59.3% | 29.6% |
+| Net time reduction | 57.0% | **58.4%** | 40.4% | **65.2%** |
+| Selection precision, median | 62.5% | 55.2% | 25.0% | 9.8% |
+| Selections holding every failing test | 85/87 | 87/91 | 11/11 | 14/19 |
 
-Zero misses on 74 non-equivalent mutants. That is the result the tool exists
-for. The fallback row is what it costs: on roughly three changes in ten to
-scrapy, and one in two to attrs, tia runs the whole suite and saves nothing.
+Zero misses in 211 non-equivalent injected defects. That is the result the tool
+exists for, and it is worth saying what it cost: on roughly three changes in ten
+to scrapy and one in two to attrs, tia runs the whole suite and saves nothing.
 
-**These are two repositories at 30-50 mutants each.** Not enough to put a
-confidence interval on, and not a claim about your codebase. The corpus-wide
-result at 200+ mutants per repository is not yet measured.
+**An earlier version of the import graph let a defect through** — 1 miss in 184,
+found only when the sample was raised from 50 to 200. Two independent faults,
+the first fix insufficient. D-0014 has the full account. It is the clearest
+evidence in this project that a safety claim is worth exactly as much as the
+experiment that could have falsified it.
 
 **An earlier run of this same experiment found a real miss** — one in 46 — and
 the fallback rule above is what fixes it. The root cause is written out in full

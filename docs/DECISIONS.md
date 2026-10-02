@@ -641,32 +641,31 @@ walks the reverse edges breadth-first. A changed import-time line yields
 (default 0.6) it yields `CLOSURE_TOO_LARGE` and the whole suite runs, because
 selecting most of a suite costs more to compute than it saves.
 
-**Measured on both corpus repositories.** Each pair is one map, one seed, one
-set of mutation sites, differing only in whether the closure is consulted:
+**Measured on both corpus repositories.** Each pair is one map, one seed and
+one set of mutation sites, differing only in whether the closure is consulted.
+**These figures supersede the ones first recorded here**, which were produced
+by a graph that was letting a defect through — see D-0014.
 
 | | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
 |---|---|---|---|---|
-| Misses | 0 / 47 | 0 / 47 | 0 / 27 | 0 / 27 |
-| Fallback frequency | 59.6% | **51.1%** | 59.3% | **29.6%** |
-| Mutants selecting | 19 | 23 | 11 | 19 |
-| Net time reduction | 46.2% | **50.7%** | 38.8% | **66.3%** |
+| Non-equivalent defects | 184 | 184 | 27 | 27 |
+| Misses | 0 | 0 | 0 | 0 |
+| Fallback frequency | 52.7% | 50.5% | 59.3% | **29.6%** |
+| Net time reduction | 57.0% | 58.4% | 40.4% | **65.2%** |
+| Precision, median | 62.5% | 55.2% | 25.0% | 9.8% |
 
-Two things are worth saying out loud.
+The honest reading, repository by repository. On **scrapy** the graph earns its
+place: it halves the fallback rate and lifts the saving from 40.4% to 65.2%. On
+**attrs** it is worth almost nothing — 58.4% against 57.0%, with the fallback
+rate barely moving — because a 3.9-second suite has nothing left to give once
+pytest's startup is paid (D-0005). The dominant fallback reason changes from
+`IMPORT_TIME_LINE` to `CLOSURE_TOO_LARGE` in both: we replaced a rule that gave
+up immediately with one that tries first and, on a tightly coupled codebase,
+still usually gives up.
 
-First, the fallback rate before the graph is nearly identical on two very
-different codebases — 59.6% and 59.3%. That the import-time rule costs about
-three changes in five appears to be a property of how Python test suites import
-their code, not an accident of one repository.
-
-Second, **we predicted the wrong repository would benefit.** The reasoning was
-that scrapy's closures are far larger (median 42.9% of the suite against 9.4%
-for attrs), so the limit would fire more often and the graph would help less.
-It fired more often — `CLOSURE_TOO_LARGE` on 8 of 27 — and the graph still
-helped roughly five times as much. The prediction confused closure *share* with
-time *saved*. Selecting 43% of a 62-second suite saves half a minute; selecting
-9% of a four-second suite saves almost nothing, because pytest's own startup is
-the floor (D-0005). Benefit tracks absolute suite time, and closure share only
-decides how often the attempt is abandoned.
+Precision falls when the graph is on (62.5% to 55.2% on attrs, 25.0% to 9.8% on
+scrapy), which is expected and is the price of the recall that keeps misses at
+zero: the closure deliberately selects more than can fail.
 
 **Closure size is the thing that decides it**, and it is a property of the
 codebase, not of tia:
@@ -788,8 +787,10 @@ closure now unions `tests_for_file` with `tests_in_files`.
 **What this costs the Phase 2 story.** With the fault repaired, the import graph
 is worth almost nothing on attrs: 58.4% against 57.0%, and a fallback rate that
 barely moves. The earlier attrs result (51.1% fallback, 50.7% reduction) and
-the scrapy result (29.6%, 66.3%) were both produced by the faulty graph and are
-withdrawn pending re-measurement.
+the scrapy result (29.6%, 66.3%) were both produced by the faulty graph and
+were withdrawn. Both repositories have since been re-measured on rebuilt maps:
+attrs 50.5% / 58.4%, scrapy 29.6% / **65.2%**, both with zero misses. The
+scrapy benefit survives the repair; the attrs benefit does not.
 
 **Three things worth taking from this.**
 

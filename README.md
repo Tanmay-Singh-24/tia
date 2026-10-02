@@ -88,40 +88,46 @@ something plausible.
 | Tests selected | 31 of 1334 |
 | Selected run | 0.82 s against a 3.93 s serial baseline |
 
-**Safety validation across both corpus repositories.** One defect injected at
-a time; the full suite must catch it or the mutant is excluded as equivalent;
-then the selection runs. If the selection passes where the full suite failed,
-that is a miss.
+**Safety validation.** One defect injected at a time; the full suite must catch
+it or the mutant is excluded as equivalent; then the selection runs. If the
+selection passes where the full suite failed, that is a **miss**. attrs was run
+at 200 mutants (seed 2026), scrapy at 30 (seed 1234). Each pair shares one map
+and one set of mutation sites and differs only in whether the import closure is
+consulted.
 
-| | attrs | scrapy |
-|---|---|---|
-| Tests in the suite | 1,334 | 4,371 |
-| Baseline suite time | 3.93 s | 62.6 s |
-| Non-equivalent mutants | 47 | 27 |
-| **Misses** | **0** | **0** |
-| Fallback, without the import graph | 59.6% | 59.3% |
-| Fallback, with it | **51.1%** | **29.6%** |
-| Net time reduction, without | 46.2% | 38.8% |
-| Net time reduction, with | **50.7%** | **66.3%** |
+| | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
+|---|---|---|---|---|
+| Non-equivalent defects | 184 | 184 | 27 | 27 |
+| **Misses** | **0** | **0** | **0** | **0** |
+| Fallback frequency | 52.7% | 50.5% | 59.3% | 29.6% |
+| Net time reduction | 57.0% | **58.4%** | 40.4% | **65.2%** |
+| Selection precision, median | 62.5% | 55.2% | 25.0% | 9.8% |
+| Selections holding every failing test | 85/87 | 87/91 | 11/11 | 14/19 |
 
-Each pair is one map, one seed and one set of mutation sites, differing only in
-whether the import closure is consulted — see D-0012 and D-0013 in
-[docs/DECISIONS.md](docs/DECISIONS.md) for why that control matters, and for
-two earlier measurements it invalidated.
+**Zero misses in 211 non-equivalent injected defects** across two real
+codebases — after the import graph was caught letting one through at 200
+mutants and repaired (D-0014).
 
-Results: [`safety_attrs_2026-10-02T133350Z_seed1234_graph.json`](eval/results/safety_attrs_2026-10-02T133350Z_seed1234_graph.json), [`safety_attrs_2026-10-02T132005Z_seed1234_nograph.json`](eval/results/safety_attrs_2026-10-02T132005Z_seed1234_nograph.json),
-[`safety_scrapy_2026-10-02T144233Z_seed1234_graph.json`](eval/results/safety_scrapy_2026-10-02T144233Z_seed1234_graph.json), [`safety_scrapy_2026-10-02T135205Z_seed1234_nograph.json`](eval/results/safety_scrapy_2026-10-02T135205Z_seed1234_nograph.json).
+**The import graph pays off in proportion to suite duration, not test count.**
+On scrapy, whose suite takes 52 s, it halves the fallback rate and lifts the
+saving from 40.4% to 65.2%. On attrs, whose suite takes 3.9 s, it is worth
+almost nothing — 58.4% against 57.0% — because pytest's own startup is the
+floor and there is nothing left to buy.
 
-**What the numbers say.** Zero misses on 74 non-equivalent mutants across two
-real codebases. The import graph roughly halves the fallback rate on scrapy and
-takes its net saving to 66.3%; on attrs the gain is modest, because a
-four-second suite leaves almost nothing to save once pytest's own startup is
-paid. Benefit tracks absolute suite duration — not test count, and not closure
-size.
+**Precision is the honest cost of conservatism.** A median of 55.2% on attrs
+and 9.8% on scrapy: the closure selects broadly, and many selected tests do not
+fail. That is what keeps the miss rate at zero. Note also that "no miss" is not
+complete recall — on scrapy, 14 of 19 selections contained *every* failing test;
+the others caught the defect with only some of them.
 
-**Still unmeasured:** selection precision, fallback frequency over real
-historical commits, and safety at 200+ mutants per repository. No published
-number moves without the JSON that produced it.
+Results: [`safety_attrs_2026-10-02T161902Z_seed2026_nograph.json`](eval/results/safety_attrs_2026-10-02T161902Z_seed2026_nograph.json),
+[`safety_attrs_2026-10-02T174240Z_seed2026_graph.json`](eval/results/safety_attrs_2026-10-02T174240Z_seed2026_graph.json),
+[`safety_scrapy_2026-10-02T191409Z_seed1234_nograph.json`](eval/results/safety_scrapy_2026-10-02T191409Z_seed1234_nograph.json),
+[`safety_scrapy_2026-10-02T182614Z_seed1234_graph.json`](eval/results/safety_scrapy_2026-10-02T182614Z_seed1234_graph.json).
+
+**Still unmeasured:** fallback frequency over real historical commits, a third
+codebase, and whether 0.6 is the right closure limit. No published number moves
+without the JSON that produced it.
 
 ## Repository
 
