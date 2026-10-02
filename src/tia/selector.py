@@ -253,6 +253,18 @@ def _apply(
         found = db.tests_for_file(conn, change.lookup_path)
     else:  # Reason.SELECTED
         found = db.tests_for_lines(conn, change.lookup_path, change.old_lines)
+        if not found:
+            # An empty line-level lookup means the map has nothing for these
+            # particular lines — they are continuation lines, blanks, or part
+            # of a statement coverage attributes to its first line. That is
+            # ignorance, not proof that no test is affected, so widen to every
+            # test that touched the file rather than selecting nothing.
+            found = db.tests_for_file(conn, change.lookup_path)
+            # TODO: this labels the explanations but not Decision.primary_reason,
+            # which is derived from the classifier's verdict. The behaviour —
+            # widening instead of selecting nothing — is what the guarantee
+            # needs; the reporting should follow.
+            reason = Reason.LINE_NOT_IN_MAP
 
     for nodeid in sorted(found - selected):
         explanations.append(

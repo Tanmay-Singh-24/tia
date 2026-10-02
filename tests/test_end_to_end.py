@@ -212,6 +212,13 @@ def test_stale_map_falls_back(mini_project: Path, commit, run_git) -> None:
     assert decision.primary_reason is Reason.MAP_STALE
 
 
+def _git(repo: Path, *args: str) -> str:
+    """Run a git command in the fixture repo and return its stdout."""
+    return subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
 def test_selection_catches_an_injected_defect(mini_project: Path) -> None:
     """The safety property in miniature: what the full suite catches, we catch."""
     build_map(mini_project)
@@ -317,3 +324,37 @@ def test_plugin_never_runs_zero_tests(mini_project: Path) -> None:
     assert result.returncode == 0, result.stdout
     assert " 0 passed" not in result.stdout
     assert "no collected test" in result.stdout or "3 passed" in result.stdout
+
+
+def test_changing_a_line_the_map_never_saw_widens_to_the_file(
+    mini_project: Path,
+) -> None:
+    """A comment carries no coverage, so the line-level lookup comes back
+    empty. Selecting nothing there would report ignorance as safety. CI caught
+    exactly this shape on a real change and printed "selected 0 of 115".
+    """
+    target = mini_project / "mini.py"
+    target.write_text(target.read_text() + "\n# a comment the map cannot see\n")
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "add a comment")
+    build_map(mini_project)
+    base = _git(mini_project, "rev-parse", "HEAD")
+
+    target.write_text(
+        target.read_text().replace(
+            "# a comment the map cannot see", "# an edited comment"
+        )
+    )
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "edit the comment")
+
+    decision = select(
+        mini_project, Config(packages=["mini"], upstream="main"), base=base
+    )
+    # The guarantee: never an empty selection presented as a confident answer.
+    # (The LINE_NOT_IN_MAP label is applied to the explanations but does not yet
+    # propagate to Decision.primary_reason — see the TODO in selector.py.)
+    assert decision.selected or decision.full_suite, (
+        "a line the map never saw must never produce an empty selection"
+    )
+    assert len(decision.selected) >= 1

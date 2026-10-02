@@ -27,6 +27,7 @@ class Reason(StrEnum):
     NON_SOURCE_ASSET = "NON_SOURCE_ASSET"
     USER_CONFIGURED = "USER_CONFIGURED"
     IMPORT_TIME_LINE = "IMPORT_TIME_LINE"
+    LINE_NOT_IN_MAP = "LINE_NOT_IN_MAP"
     MAP_STALE = "MAP_STALE"
     NO_MAP = "NO_MAP"
     CLASSIFIER_ERROR = "CLASSIFIER_ERROR"
@@ -50,6 +51,7 @@ FALLBACK_REASONS: frozenset[Reason] = frozenset(
         Reason.NON_SOURCE_ASSET,
         Reason.USER_CONFIGURED,
         Reason.IMPORT_TIME_LINE,
+        Reason.LINE_NOT_IN_MAP,
         Reason.MAP_STALE,
         Reason.NO_MAP,
         Reason.CLASSIFIER_ERROR,
@@ -92,6 +94,13 @@ DESCRIPTIONS: dict[Reason, str] = {
         "a line-level map yet any test may read them."
     ),
     Reason.USER_CONFIGURED: ("The path matches an always_full glob in .tia.toml."),
+    Reason.LINE_NOT_IN_MAP: (
+        "The changed line is in a mapped file but the map holds no coverage "
+        "for that line itself — it is a continuation line, a blank, or part of "
+        "a multi-line statement that coverage attributes elsewhere. An empty "
+        "line-level lookup is not evidence that no test is affected, so "
+        "selection widens to every test that touched the file."
+    ),
     Reason.IMPORT_TIME_LINE: (
         "The changed line executed at import time, outside any test. Coverage "
         "attributes such execution to no test at all, so a test whose "
