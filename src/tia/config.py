@@ -54,7 +54,7 @@ class Config:
 
 
 TEMPLATE = """\
-# tia configuration. See https://github.com/tanmaysingh/tia
+# tia configuration. See https://github.com/Tanmay-Singh-24/tia
 [tia]
 # Import names to measure while building the map. Leave empty to measure
 # everything the suite imports from this repository.

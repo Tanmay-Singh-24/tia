@@ -1,0 +1,68 @@
+# Review 2 deliverable: tia running in a realistic CI pipeline.
+#
+# The pipeline tests tia with tia. It builds a map over this repository's own
+# suite, then asks for the selection for the pull request's actual diff and
+# runs it through the pytest plugin.
+#
+# The honest part is the last step: the full suite runs too, and the job fails
+# if the selection passed while the full suite failed. In a real pipeline that
+# check is what earns the right to stop running the full suite — you keep it
+# until the miss rate is measured, not before.
+
+name: selective tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  selective:
+    name: tia selection vs full suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tia needs history to resolve the merge base
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e ".[dev,eval]"
+
+      - name: Build the map
+        run: |
+          tia init
+          tia build
+
+      - name: Map summary
+        run: tia status
+
+      - name: What would tia select for this change?
+        id: select
+        run: |
+          BASE="${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
+          echo "diffing against $BASE"
+          tia select --base "$BASE" --explain || true
+          tia select --base "$BASE" --format json > selection.json || true
+          cat selection.json
+
+      - name: Run the selected tests through the plugin
+        run: |
+          BASE="${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
+          pytest --tia --tia-base="$BASE" -q
+
+      - name: Full suite, as the safety net
+        id: full
+        run: pytest -q
+
+      - name: Publish the selection as a build artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tia-selection
+          path: selection.json
+          if-no-files-found: warn
