@@ -116,38 +116,26 @@ The claim "tia is safe" is not made. What is made is a measurement:
 A single miss is a failure of the core guarantee and is root-caused
 individually in the report rather than averaged away.
 
-**Current status — attrs, 50 mutants, seed 1234**
-([`eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json`](../eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json)):
+**Current status — both corpus repositories, seed 1234**
 
-| | |
-|---|---|
-| Mutants generated | 50 |
-| Equivalent (excluded) | 3 |
-| Non-equivalent | 47 |
-| **Misses** | **0** |
-| Fell back to the full suite | 28 of 47 (59.6%), all `IMPORT_TIME_LINE` |
-| Selection ratio, when selecting | median 0.7% (min 0.08%, max 99.9%) |
-| Full suite / selected, median | 3.97 s / 0.30 s |
+| | attrs | scrapy |
+|---|---|---|
+| Tests in the suite | 1,334 | 4,371 |
+| Baseline suite time | 3.93 s | 62.6 s |
+| Non-equivalent mutants | 47 | 27 |
+| **Misses** | **0** | **0** |
+| Fallback, without the import graph | 59.6% | 59.3% |
+| Fallback, with it | **51.1%** | **29.6%** |
+| Net time reduction, without | 46.2% | 38.8% |
+| Net time reduction, with | **50.7%** | **66.3%** |
 
-Net of every fallback, the suite time across all non-equivalent mutants drops
-from 182.6 s to 98.4 s on attrs (**46.1%**) and from 570.0 s to 297.9 s on
-scrapy (**47.7%**). When selection does happen, the median reduction on that
-change is 93.6%.
+Zero misses on 74 non-equivalent mutants. That is the result the tool exists
+for. The fallback row is what it costs: on roughly three changes in ten to
+scrapy, and one in two to attrs, tia runs the whole suite and saves nothing.
 
-Read those two middle rows together. Zero misses is the result that matters,
-but it is bought by giving up line-level selection on **60% of changes** to this
-codebase. tia is safe here and, on well over half of these changes, no faster
-than simply running everything.
-
-**Second repository — scrapy, 17 mutants** (a partial run, stopped early;
-`complete: false` in the JSON): 14 non-equivalent, **0 misses**, and **7 of 14
-(50%) fell back**, again every one `IMPORT_TIME_LINE`. Median selection ratio
-0.39%; full suite 45.95 s against 2.62 s for the selection. The fallback rate
-is the same story at 5,000 tests as at 1,400.
-
-**These figures are two repositories, one run each, and one of them partial.** It is not a claim about
-your codebase, and it is not enough mutants to put a confidence interval on.
-The corpus-wide result at 200+ mutants per repository is not yet measured.
+**These are two repositories at 30-50 mutants each.** Not enough to put a
+confidence interval on, and not a claim about your codebase. The corpus-wide
+result at 200+ mutants per repository is not yet measured.
 
 **An earlier run of this same experiment found a real miss** — one in 46 — and
 the fallback rule above is what fixes it. The root cause is written out in full

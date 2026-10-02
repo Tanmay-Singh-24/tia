@@ -88,45 +88,40 @@ something plausible.
 | Tests selected | 31 of 1334 |
 | Selected run | 0.82 s against a 3.93 s serial baseline |
 
-**Safety — 50 injected defects on attrs**, seed 1234, from
-[`eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json`](eval/results/safety_attrs_2026-09-08T231235Z_seed1234.json):
-
-| Metric | Value |
-|---|---|
-| Non-equivalent mutants | 47 (3 excluded as equivalent) |
-| **Misses** | **0** |
-| Fallback frequency | 28 of 47 (59.6%), all `IMPORT_TIME_LINE` |
-| Selection ratio when selecting | median 0.7% |
-| Full suite / selected, median | 3.97 s / 0.30 s |
-
-**Net effect across all mutants, fallbacks included** (derived from the same
-JSONs — total suite time with tia against total without):
+**Safety validation across both corpus repositories.** One defect injected at
+a time; the full suite must catch it or the mutant is excluded as equivalent;
+then the selection runs. If the selection passes where the full suite failed,
+that is a miss.
 
 | | attrs | scrapy |
 |---|---|---|
-| Without tia | 182.6 s | 570.0 s |
-| With tia | 98.4 s | 297.9 s |
-| **Net reduction** | **46.1%** | **47.7%** |
-| Median reduction when it does select | 93.6% | 93.8% |
+| Tests in the suite | 1,334 | 4,371 |
+| Baseline suite time | 3.93 s | 62.6 s |
+| Non-equivalent mutants | 47 | 27 |
+| **Misses** | **0** | **0** |
+| Fallback, without the import graph | 59.6% | 59.3% |
+| Fallback, with it | **51.1%** | **29.6%** |
+| Net time reduction, without | 46.2% | 38.8% |
+| Net time reduction, with | **50.7%** | **66.3%** |
 
-Both land inside the 40–70% range the proposal set out to validate, with zero
-misses. Zero misses is the point of the tool; the 59.6% fallback rate is what
-that costs, and it is reported here rather than in an appendix. An earlier run found a genuine miss — see D-0009 in
-[docs/DECISIONS.md](docs/DECISIONS.md) for the root cause and the rule that
-fixes it.
+Each pair is one map, one seed and one set of mutation sites, differing only in
+whether the import closure is consulted — see D-0012 and D-0013 in
+[docs/DECISIONS.md](docs/DECISIONS.md) for why that control matters, and for
+two earlier measurements it invalidated.
 
-**scrapy, 17 mutants** (partial run): 14 non-equivalent, **0 misses**, 7 of 14
-(50%) fell back with `IMPORT_TIME_LINE`. Full suite 45.95 s against 2.62 s
-selected.
+Results: [`safety_attrs_2026-10-02T133350Z_seed1234_graph.json`](eval/results/safety_attrs_2026-10-02T133350Z_seed1234_graph.json), [`safety_attrs_2026-10-02T132005Z_seed1234_nograph.json`](eval/results/safety_attrs_2026-10-02T132005Z_seed1234_nograph.json),
+[`safety_scrapy_2026-10-02T144233Z_seed1234_graph.json`](eval/results/safety_scrapy_2026-10-02T144233Z_seed1234_graph.json), [`safety_scrapy_2026-10-02T135205Z_seed1234_nograph.json`](eval/results/safety_scrapy_2026-10-02T135205Z_seed1234_nograph.json).
 
-Still unmeasured:
+**What the numbers say.** Zero misses on 74 non-equivalent mutants across two
+real codebases. The import graph roughly halves the fallback rate on scrapy and
+takes its net saving to 66.3%; on attrs the gain is modest, because a
+four-second suite leaves almost nothing to save once pytest's own startup is
+paid. Benefit tracks absolute suite duration — not test count, and not closure
+size.
 
-| Metric | Value | Source |
-|---|---|---|
-| Runtime reduction across the corpus | TBD | TBD |
-| Safety on scrapy at n=200 | TBD (17 run) | TBD |
-| Selection precision | TBD | TBD |
-| p95 map lookup latency | TBD | TBD |
+**Still unmeasured:** selection precision, fallback frequency over real
+historical commits, and safety at 200+ mutants per repository. No published
+number moves without the JSON that produced it.
 
 ## Repository
 

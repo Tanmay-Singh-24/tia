@@ -608,3 +608,136 @@ to be mapped.
 **Evidence.** `tia status` in both corpus checkouts; the latency figures are
 reproducible with the sampling loop recorded in this session against
 `eval/.corpus/scrapy/repo/.tia/map.db`.
+
+---
+
+## D-0012 — The import graph replaces a fallback with a cheaper fallback
+
+**Date:** 2026-10-02 · **Area:** importgraph/classifier · **Status:** accepted
+
+**Context.** D-0009 added the rule that any change touching a line which ever
+executed at import time runs the whole suite, because coverage attributes
+import-time execution to no test. It removed the only miss the harness has ever
+found. It also became the single largest cost in the system: at Review 1 it
+caused **every** fallback on attrs and fired on 59.6% of mutants. SPEC B.8's
+import graph was written as a Phase 2 enhancement; the measurement turned it
+into the thing that makes D-0009 affordable.
+
+**Options considered.**
+1. *Leave it.* Safe, and roughly three in five changes get no benefit at all.
+2. *Attribute import-time lines to every test in the importing module.* Cheap
+   to implement and wrong in the unsafe direction: it guesses at a dependency
+   the map did not observe.
+3. *Static import graph.* When a changed line ran at import time, select the
+   tests covering every module that transitively imports the changed file.
+   Strictly more information than "run everything", and conservative: the
+   closure is a superset of what an import-time dependency can reach *through
+   imports*.
+
+**Decision.** Option 3, guarded. `importgraph.py` resolves `import` and
+`from ... import` with `ast`, maps module names back to project files, and
+walks the reverse edges breadth-first. A changed import-time line yields
+`IMPORT_CLOSURE`; once the closure exceeds `closure_max_fraction` of the suite
+(default 0.6) it yields `CLOSURE_TOO_LARGE` and the whole suite runs, because
+selecting most of a suite costs more to compute than it saves.
+
+**Measured on both corpus repositories.** Each pair is one map, one seed, one
+set of mutation sites, differing only in whether the closure is consulted:
+
+| | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
+|---|---|---|---|---|
+| Misses | 0 / 47 | 0 / 47 | 0 / 27 | 0 / 27 |
+| Fallback frequency | 59.6% | **51.1%** | 59.3% | **29.6%** |
+| Mutants selecting | 19 | 23 | 11 | 19 |
+| Net time reduction | 46.2% | **50.7%** | 38.8% | **66.3%** |
+
+Two things are worth saying out loud.
+
+First, the fallback rate before the graph is nearly identical on two very
+different codebases — 59.6% and 59.3%. That the import-time rule costs about
+three changes in five appears to be a property of how Python test suites import
+their code, not an accident of one repository.
+
+Second, **we predicted the wrong repository would benefit.** The reasoning was
+that scrapy's closures are far larger (median 42.9% of the suite against 9.4%
+for attrs), so the limit would fire more often and the graph would help less.
+It fired more often — `CLOSURE_TOO_LARGE` on 8 of 27 — and the graph still
+helped roughly five times as much. The prediction confused closure *share* with
+time *saved*. Selecting 43% of a 62-second suite saves half a minute; selecting
+9% of a four-second suite saves almost nothing, because pytest's own startup is
+the floor (D-0005). Benefit tracks absolute suite time, and closure share only
+decides how often the attempt is abandoned.
+
+**Closure size is the thing that decides it**, and it is a property of the
+codebase, not of tia:
+
+| | attrs | scrapy |
+|---|---|---|
+| Source files in the graph | 16 | 144 |
+| Import edges | 37 | 599 |
+| Closure as a share of the suite, median | **9.4%** | **42.9%** |
+| p95 | 99.7% | 87.7% |
+| Files whose closure exceeds the 60% limit | 5 of 16 | 62 of 144 |
+
+A library with leaf modules gets most of its changes selected; a framework
+whose core is imported by everything abandons the attempt more often. But the
+benefit does not follow that ordering — see above. The property that predicts
+the benefit is **baseline suite duration**, with closure share deciding only how
+frequently selection is attempted at all. This is the "which codebase
+properties predict the benefit" characterisation the proposal committed to
+producing, and it is a more useful result than the speedup itself.
+
+**How we would know this was wrong.** If a miss ever appears on a mutant whose
+verdict was `IMPORT_CLOSURE`, the closure is not the superset we claim and the
+rule must revert to the full suite. The experiment that would show it is the
+one already in place, which is why the arms are run on the same sites. The
+default limit of 0.6 is SPEC B.8's suggestion, not a measured optimum; the
+measurement that would set it is a sweep of the limit against net reduction,
+and it has not been run.
+
+**Evidence.** `eval/results/safety_attrs_2026-10-02T132005Z_seed1234_nograph.json`
+and `..._133350Z_seed1234_graph.json`.
+
+---
+
+## D-0013 — Two ways our own measurements lied, and what now prevents them
+
+**Date:** 2026-10-02 · **Area:** eval/methodology · **Status:** accepted
+
+**Context.** Both of these produced numbers we believed before we caught them.
+They are recorded because a project whose contribution is *reproducible
+measurement* has to be hardest on its own measurements.
+
+**Fault 1 — a before/after across a map rebuild is not a controlled
+comparison.** Mutation sites are sampled from the lines the map records as
+covered. Rebuilding the map changes that set slightly (508,939 rows against
+508,929 on the same commit, because coverage of a parallel run is not
+bit-identical), so the same seed selects *different mutants*. The first
+import-graph comparison looked like fallback dropping 59.6% → 51.1% and net
+reduction collapsing 46.1% → 11.8%, and neither half was comparing like with
+like.
+
+*Fix:* `--no-import-graph` selects the Phase 1 arm at selection time, so both
+arms run against one map and one site list and differ in exactly one variable.
+The arm is recorded in the payload and in the filename. The no-graph arm
+reproduces the Review 1 figure exactly (59.6% fallback, n=19), which is the
+check that the sampling is reproducible when the map is held fixed.
+
+**Fault 2 — an exclusion threshold chosen by hand changes the answer.** Net
+time reduction was computed outside the harness, excluding runs slower than
+800s to drop a mutant that hangs the suite. When the timeout setting moved from
+900s to 600s, that same hung mutant fell on the other side of the threshold:
+included, it turned a 46% reduction into 11%. The tool had not changed at all.
+
+*Fix:* `net_reduction` is computed inside `eval/harness.py` and lands in every
+results JSON, excluding runs by **exit code** — a timeout measures a hang, not a
+suite — rather than by any duration. Recomputed under that definition the
+published figure stands: 46.1% then, 46.2% on the reproduction arm today.
+
+**How we would know this was wrong.** If two runs of the same arm, same seed and
+same map ever disagree on fallback frequency, sampling is not deterministic and
+every comparison in the report is void. Cheap to check and worth checking before
+the final numbers are frozen.
+
+**Evidence.** The two arm files above, and the `net_reduction` block now present
+in every safety result.
