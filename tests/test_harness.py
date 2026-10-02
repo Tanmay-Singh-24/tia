@@ -7,17 +7,22 @@ tested directly rather than inferred from a run.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "eval"))
 
+import corpus  # noqa: E402
 from harness import (  # noqa: E402
     OUTCOME_CAUGHT,
     OUTCOME_EQUIVALENT,
     OUTCOME_ERROR,
     OUTCOME_MISS,
     MutantResult,
+    replay_sites,
     summarise,
 )
 
@@ -114,3 +119,73 @@ def test_all_equivalent_yields_no_miss_rate() -> None:
     summary = summarise([result(0, OUTCOME_EQUIVALENT), result(1, OUTCOME_EQUIVALENT)])
     assert summary["non_equivalent"] == 0
     assert summary["miss_rate"] is None
+
+
+# --- replay ---------------------------------------------------------------
+# `make reproduce` stands or falls on replay: it must run exactly the recorded
+# defects, and must refuse rather than quietly run a different one.
+
+SOURCE = "def f(a, b):\n    if a < b:\n        return a + b\n    return 0\n"
+
+
+def _spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> corpus.RepoSpec:
+    monkeypatch.setattr(corpus, "CORPUS_DIR", tmp_path)
+    spec = corpus.RepoSpec(
+        name="demo", url="", sha="abc123", pinned_at="2026-01-01", install=[]
+    )
+    spec.checkout.mkdir(parents=True)
+    (spec.checkout / "mod.py").write_text(SOURCE)
+    return spec
+
+
+def _recorded(tmp_path: Path, mutations: list[dict], repo: str = "demo") -> Path:
+    path = tmp_path / "recorded.json"
+    path.write_text(
+        json.dumps(
+            {
+                "repo": repo,
+                "sha": "abc123",
+                "seed": 7,
+                "mutants": [
+                    {"index": i, "mutation": m} for i, m in enumerate(mutations)
+                ],
+            }
+        )
+    )
+    return path
+
+
+def test_replay_relocates_the_recorded_mutation(tmp_path, monkeypatch) -> None:
+    spec = _spec(tmp_path, monkeypatch)
+    recorded = {
+        "path": "mod.py",
+        "lineno": 2,
+        "family": "comparison_flip",
+        "before": "<",
+        "after": "<=",
+    }
+    sites = replay_sites(spec, _recorded(tmp_path, [recorded]))
+    assert len(sites) == 1
+    assert sites[0].as_dict() == recorded
+
+
+def test_replay_refuses_a_mutation_the_source_no_longer_admits(
+    tmp_path, monkeypatch
+) -> None:
+    """Substituting a nearby mutant is how a reproduction quietly stops being one."""
+    spec = _spec(tmp_path, monkeypatch)
+    gone = {
+        "path": "mod.py",
+        "lineno": 2,
+        "family": "comparison_flip",
+        "before": ">",  # the source has '<' here
+        "after": ">=",
+    }
+    with pytest.raises(SystemExit, match="cannot replay"):
+        replay_sites(spec, _recorded(tmp_path, [gone]))
+
+
+def test_replay_refuses_another_repositorys_results(tmp_path, monkeypatch) -> None:
+    spec = _spec(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit, match="not demo"):
+        replay_sites(spec, _recorded(tmp_path, [], repo="attrs"))

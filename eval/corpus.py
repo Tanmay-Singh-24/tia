@@ -74,6 +74,9 @@ class RepoSpec:
     turns a selected run into a full one."""
 
     env: dict[str, str] = field(default_factory=dict)
+    tia: dict[str, Any] = field(default_factory=dict)
+    """tia's own configuration for this checkout, written to .tia.toml."""
+
     status: str = "candidate"
     reason: str = ""
 
@@ -109,6 +112,7 @@ def load_corpus(path: Path = CORPUS_YAML) -> list[RepoSpec]:
                 suite_args=list(merged.get("suite_args", [])),
                 suite_paths=list(merged.get("suite_paths", [])),
                 env={str(k): str(v) for k, v in (merged.get("env") or {}).items()},
+                tia=dict(merged.get("tia") or {}),
                 status=merged.get("status", "candidate"),
                 reason=merged.get("reason", ""),
             )
@@ -282,6 +286,39 @@ def install(spec: RepoSpec) -> list[Ran]:
     return results
 
 
+def _toml_value(value: Any) -> str:
+    if isinstance(value, list):
+        return "[" + ", ".join(json.dumps(str(v)) for v in value) + "]"
+    return json.dumps(str(value))
+
+
+def install_tia(spec: RepoSpec) -> bool:
+    """Install this tia into the corpus venv and write the checkout's .tia.toml.
+
+    Without this, `make map` on a clean clone fails outright — the corpus venv
+    has no `tia` — and even once installed, a checkout without the right
+    .tia.toml builds its map over a different suite than the one measured.
+    """
+    if not spec.tia:
+        return True
+    result = run(
+        [str(spec.bin / "python"), "-m", "pip", "install", "-e", str(ROOT)],
+        cwd=spec.checkout,
+        env=venv_env(spec),
+        timeout_s=900,
+        log_name=f"{spec.name}_install_tia",
+    )
+    if not result.ok:
+        print(f"[{spec.name}] installing tia failed (exit {result.exit_code})")
+        return False
+    lines = ["# Written by eval/corpus.py from eval/corpus.yaml. Do not edit.", "[tia]"]
+    lines += [f"{key} = {_toml_value(value)}" for key, value in spec.tia.items()]
+    lines.append("always_full = []")
+    (spec.checkout / ".tia.toml").write_text("\n".join(lines) + "\n")
+    print(f"[{spec.name}] tia installed; .tia.toml written")
+    return True
+
+
 def prepare(spec: RepoSpec) -> bool:
     """Clone, create the venv, install. Returns True when the repo is runnable."""
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
@@ -307,7 +344,7 @@ def prepare(spec: RepoSpec) -> bool:
         )
         return False
     print(f"[{spec.name}] prepared: {count} tests collectable")
-    return True
+    return install_tia(spec)
 
 
 # --------------------------------------------------------------------------

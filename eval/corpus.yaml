@@ -27,6 +27,13 @@ repos:
     # attrs declares test deps as a PEP 735 dependency-group, not an extra:
     # `pip install -e ".[tests]"` silently installs nothing (pip 26.2.1).
     install: ["pip install --group tests -e ."]
+    # How tia itself is configured inside this checkout. Written to .tia.toml
+    # by `corpus.py prepare`; before it lived here it lived only in an
+    # untracked file, and a clean clone could not rebuild the published map.
+    tia:
+      packages: [attr, attrs]
+      suite: pytest
+      upstream: origin/main
     status: corpus
     reason: >-
       Green, 1412 tests, 3.93s serial. The development corpus: fast
@@ -118,6 +125,12 @@ repos:
                  "--doctest-modules",
                  "--deselect", "tests/test_downloader_handler_httpx.py::TestRealWebsite"]
     suite_paths: ["scrapy", "tests"]
+    tia:
+      packages: [scrapy]
+      # Must match suite_args + suite_paths above, or the map is built over a
+      # different suite (with docs/ collected, 64 doctests fail).
+      suite: "pytest -p no:randomly -p no:cacheprovider -q scrapy tests --doctest-modules --deselect tests/test_downloader_handler_httpx.py::TestRealWebsite"
+      upstream: main
     status: corpus
     reason: >-
       Green, 5000 tests, 204.85s serial / 49.85s -n auto. The primary

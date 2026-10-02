@@ -1,0 +1,15 @@
+{
+  "_comment": "The results the README, SAFETY.md and the Review 2 deck cite. `make reproduce` replays exactly these mutations with exactly these settings, and `eval/report.py --compare` checks a reproduction against them. Change this file only alongside a DECISIONS entry.",
+  "attrs": {
+    "graph": "safety_attrs_2026-10-02T174240Z_seed2026_graph.json",
+    "nograph": "safety_attrs_2026-10-02T161902Z_seed2026_nograph.json",
+    "jobs": null,
+    "timeout": 300
+  },
+  "scrapy": {
+    "graph": "safety_scrapy_2026-10-02T182614Z_seed1234_graph.json",
+    "nograph": "safety_scrapy_2026-10-02T191409Z_seed1234_nograph.json",
+    "jobs": "auto",
+    "timeout": 400
+  }
+}

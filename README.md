@@ -71,13 +71,13 @@ numbers rather than adjectives.
 
 | | attrs | scrapy |
 |---|---|---|
-| Suite | 1,334 tests, 3.9 s | 4,371 tests, 62 s |
+| Suite (full run, median) | 1,334 tests, 3.8 s | 4,371 tests, 52 s |
 | Defects deliberately injected | 184 | 27 |
 | **Defects it let through** | **0** | **0** |
 | Test time saved | 58.4% | **65.2%** |
 | Changes where it gave up and ran everything | 50.5% | 29.6% |
 
-**It helps most where your suite is slow.** On scrapy's 62-second suite it
+**It helps most where your suite is slow.** On scrapy's 52-second suite it
 saves two thirds of the time. On a four-second suite it saves almost nothing,
 because starting pytest at all is most of the cost. If your suite finishes in
 seconds, you don't need this.
@@ -182,13 +182,25 @@ without the JSON that produced it.
 
 ```bash
 git clone https://github.com/Tanmay-Singh-24/tia && cd tia
-pip install -e ".[dev,eval]"
+python -m venv .venv && .venv/bin/pip install -e ".[dev,eval]"
 make reproduce
 ```
 
-That clones the pinned corpus, rebuilds both maps and re-runs every experiment.
-The repositories are pinned to exact commits, so the numbers above are the
-numbers you get.
+That clones the pinned corpus, installs tia into it, rebuilds both maps,
+**replays the exact injected defects** behind every row of the table above, and
+checks the outcome against the published results. About 2.5 hours on an Apple
+M4; `make reproduce-attrs` does attrs alone in about an hour.
+
+It replays rather than re-sampling on purpose: sampling draws from the lines
+the map records as covered, and a rebuilt map covers a slightly different set,
+so the same seed would pick different mutants ([D-0013](docs/DECISIONS.md)).
+What must match is whether each defect was caught — the miss count. Wall-clock
+figures will differ on other hardware, and `make reproduce` says which is which
+rather than leaving you to guess.
+
+```console
+$ make published          # the table as published, from eval/published.json
+```
 
 ## Reading the repository
 

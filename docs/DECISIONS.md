@@ -815,3 +815,56 @@ full-suite fallback and the import graph is reported as measured and rejected.
 
 **Evidence.** `eval/results/safety_attrs_*_seed2026_*.json` — the no-graph arm,
 the faulty graph arm carrying the miss, and the fixed arm.
+
+---
+
+## D-0015 — `make reproduce` replays the recorded defects instead of re-sampling
+
+**Date:** 2026-10-03 · **Area:** eval/reproducibility · **Status:** accepted
+
+**Context.** The README promised that `make reproduce` gives "the numbers
+above". Checked against a clean clone, it gave nothing at all: it crashed at
+`make map`, because `corpus.py prepare` never installed tia into the corpus
+venv, and each repository's `.tia.toml` existed only in an untracked checkout
+(so scrapy's map would have been built over `docs/` too). Past that, it ran 50
+mutants at seed 1234 on the import-graph arm only, while the published table is
+200 at seed 2026 for attrs, 30 at seed 1234 with `-n auto` for scrapy, and both
+arms of each. Reproducibility is the thesis of this project, and the command
+that was meant to demonstrate it did not work.
+
+**Options considered.**
+1. *Match the parameters and re-sample.* Not enough: sites are drawn from the
+   lines the map covers, a rebuilt map covers a slightly different set, and the
+   same seed then picks different mutants (D-0013).
+2. *Commit the maps.* 13 MB and 47 MB of SQLite in the repository, tied to one
+   coverage.py version, to avoid a problem that has a cheaper answer.
+3. *Replay the recorded mutations.* Every result already records each defect's
+   path, line, family and before/after text. Re-locate each one in the pinned
+   source and run exactly that list.
+
+**Decision.** Option 3. `harness.py --replay FILE` re-runs a result's exact
+mutation list, and refuses — rather than substituting a neighbour — if any
+recorded mutation no longer matches the pinned source. `eval/published.json` is
+the single record of which results are published and the settings each was
+measured under; `--published` reads it, so the Makefile, the harness and
+`report.py --compare` cannot drift apart. The tia configuration for each corpus
+repository moved into `corpus.yaml`, and `prepare` installs tia and writes the
+`.tia.toml`.
+
+**Verified before committing.** All 230 published mutations re-locate against
+the pinned sources, and both arms of each published pair used identical lists —
+independent confirmation that those comparisons were controlled. A 15-mutant
+replay of the attrs graph arm matched the published run on every mutant: same
+mutation, same outcome, same selection size, same reason code (15/15 on each,
+`..._graph_replay_partial.json`). The regenerated `.tia.toml` files parse
+identically to the ones that built the published maps. The full 2.5-hour
+`make reproduce` has **not** been run end to end.
+
+**What a reproduction must match, and what it need not.** The miss count must
+match, and `report.py --compare` exits non-zero if it does not. Net reduction is
+wall-clock time and will differ on other hardware. Fallback rate and precision
+can move by a mutant or two if a rebuilt map records slightly different coverage.
+
+**How we would know this was wrong.** A full `make reproduce` on a different
+machine that reports a different miss count. That is the experiment that tests
+this decision, and it has not been run yet.

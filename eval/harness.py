@@ -358,6 +358,7 @@ def build_payload(
     started: float,
     complete: bool,
     use_import_graph: bool = True,
+    replay_of: str | None = None,
 ) -> dict[str, Any]:
     """The results document. Written after every mutant, not just at the end."""
     return {
@@ -376,6 +377,7 @@ def build_payload(
         "requested": count,
         "jobs": jobs,
         "use_import_graph": use_import_graph,
+        "replay_of": replay_of,
         "duration_s": round(time.perf_counter() - started, 1),
         "machine": machine_info(),
         "suite_args": spec.suite_args,
@@ -512,6 +514,57 @@ def summarise(results: list[MutantResult]) -> dict[str, Any]:
     }
 
 
+def replay_sites(spec: RepoSpec, results_file: Path) -> list[Mutation]:
+    """The exact mutations a committed result used, re-located in the source.
+
+    Re-sampling with the same seed is not reproduction: sites are drawn from
+    the lines the map records as covered, and a rebuilt map covers a slightly
+    different set (D-0013), so the same seed picks different mutants. A result
+    records each mutation's path, line, family and before/after text; this finds
+    each one again among the mutations the pinned source admits. A record that
+    no longer matches exactly one candidate is a hard error — silently
+    substituting a nearby mutant is how a reproduction quietly stops being one.
+    """
+    recorded = json.loads(results_file.read_text())
+    if recorded.get("repo") != spec.name:
+        raise SystemExit(
+            f"{results_file.name} is a {recorded.get('repo')} result, not {spec.name}"
+        )
+    if recorded.get("sha") and recorded["sha"] != spec.sha:
+        raise SystemExit(
+            f"{results_file.name} was measured at {recorded['sha'][:12]}, "
+            f"but corpus.yaml pins {spec.sha[:12]}"
+        )
+
+    by_path: dict[str, list[Mutation]] = {}
+    sites: list[Mutation] = []
+    for entry in recorded["mutants"]:
+        want = entry["mutation"]
+        path = want["path"]
+        if path not in by_path:
+            source = (spec.checkout / path).read_text(encoding="utf-8")
+            by_path[path] = find_mutations(source, path)
+        matches = [
+            m
+            for m in by_path[path]
+            if m.lineno == want["lineno"]
+            and m.family == want["family"]
+            and m.before == want["before"]
+            and m.after == want["after"]
+        ]
+        # Two identical operators on one line produce identical records. They
+        # are interchangeable as defects, so the first is taken; anything
+        # other than one-or-identical means the source has moved.
+        if not matches:
+            raise SystemExit(
+                f"cannot replay mutant {entry['index']} ({path}:{want['lineno']} "
+                f"{want['family']} {want['before']!r}->{want['after']!r}): "
+                "the pinned source no longer admits it"
+            )
+        sites.append(matches[0])
+    return sites
+
+
 def safety(
     spec: RepoSpec,
     *,
@@ -520,6 +573,8 @@ def safety(
     timeout_s: int,
     jobs: str | None = None,
     use_import_graph: bool = True,
+    replay: Path | None = None,
+    limit: int | None = None,
 ) -> dict[str, Any]:
     """Run the safety experiment and write the results JSON."""
     map_file = db.map_path(spec.checkout)
@@ -540,18 +595,28 @@ def safety(
             f"{base[:7]}; every mutant will fall back with MAP_STALE"
         )
 
-    rng = random.Random(seed)
-    mutations = sample_sites(spec, count, rng)
-    print(
-        f"[{spec.name}] sampled {len(mutations)} mutation sites from covered lines",
-        flush=True,
-    )
+    if replay is not None:
+        mutations = replay_sites(spec, replay)
+        seed = int(json.loads(replay.read_text()).get("seed", seed))
+        count = len(mutations)
+        how = f"replaying {len(mutations)} recorded mutations from {replay.name}"
+    else:
+        rng = random.Random(seed)
+        mutations = sample_sites(spec, count, rng)
+        how = f"sampled {len(mutations)} mutation sites from covered lines"
+    if limit is not None:
+        mutations = mutations[:limit]
+        how += f" (first {len(mutations)} only)"
+    print(f"[{spec.name}] {how}", flush=True)
 
     started = time.perf_counter()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
     arm = "graph" if use_import_graph else "nograph"
-    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}_{arm}.json"
+    # A --limit run is a spot check, not a reproduction, and its filename says
+    # so: report.py --compare only ever reads full "_replay" files.
+    tag = ("_replay" if replay else "") + ("_partial" if limit is not None else "")
+    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}_{arm}{tag}.json"
 
     results: list[MutantResult] = []
     for index, mutation in enumerate(mutations):
@@ -581,6 +646,7 @@ def safety(
                     started=started,
                     complete=index + 1 == len(mutations),
                     use_import_graph=use_import_graph,
+                    replay_of=replay.name if replay else None,
                 ),
                 indent=2,
             )
@@ -614,6 +680,7 @@ def safety(
         started=started,
         complete=True,
         use_import_graph=use_import_graph,
+        replay_of=replay.name if replay else None,
     )
     out.write_text(json.dumps(payload, indent=2) + "\n")
     print(f"[{spec.name}] wrote {out.relative_to(ROOT)}", flush=True)
@@ -682,6 +749,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--experiment", default="safety", choices=["safety"])
     parser.add_argument("--n", type=int, default=50, help="mutation sites to sample")
     parser.add_argument("--seed", type=int, default=1234)
+    parser.add_argument(
+        "--replay",
+        type=Path,
+        metavar="RESULTS_JSON",
+        help="re-run the exact mutations recorded in a committed result "
+        "(ignores --n and --seed)",
+    )
+    parser.add_argument(
+        "--published",
+        action="store_true",
+        help="replay the published result for this repo and arm, with the "
+        "settings it was measured under (see eval/published.json)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        metavar="K",
+        help="run only the first K mutations (a quick check of a replay)",
+    )
     parser.add_argument("--timeout", type=int, default=DEFAULT_SUITE_TIMEOUT_S)
     parser.add_argument(
         "--no-import-graph",
@@ -697,6 +783,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     spec = find_spec(args.repo)
+    if args.published:
+        manifest = json.loads((ROOT / "eval" / "published.json").read_text())
+        entry = manifest.get(spec.name)
+        if entry is None:
+            raise SystemExit(f"eval/published.json has no entry for {spec.name}")
+        arm = "nograph" if args.no_import_graph else "graph"
+        args.replay = RESULTS_DIR / entry[arm]
+        args.jobs = entry["jobs"]
+        args.timeout = entry["timeout"]
+
     payload = safety(
         spec,
         count=args.n,
@@ -704,6 +800,8 @@ def main(argv: list[str] | None = None) -> int:
         timeout_s=args.timeout,
         jobs=args.jobs,
         use_import_graph=not args.no_import_graph,
+        replay=args.replay,
+        limit=args.limit,
     )
     report(payload)
     return 1 if payload["summary"]["misses"] else 0

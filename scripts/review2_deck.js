@@ -144,7 +144,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     ["", "attrs", "scrapy"],
     [
       ["Tests in the suite", "1,334", "4,371"],
-      ["Baseline suite time", "3.93 s", "62.6 s"],
+      ["Full suite, median", "3.8 s", "52 s"],
       ["Non-equivalent defects injected", "184", "27"],
       [{ text: "Misses", options: { bold: true } }, { text: "0", options: { bold: true, color: GOOD } }, { text: "0", options: { bold: true, color: GOOD } }],
       ["Fallback rate", "50.5%", "29.6%"],
@@ -444,7 +444,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
       "docs/SAFETY.md — what is guaranteed and what is not",
       "docs/DECISIONS.md — 13 dated decisions, each with a falsification condition",
       "eval/results/ — raw JSON for every published number",
-      "make reproduce — regenerates the tables from the pinned corpus",
+      "make reproduce — replays every published defect and checks the result",
       "pip install tia-select — published, 0.1.0",
       "github.com/Tanmay-Singh-24/tia — public, CI green on 3.11 and 3.12",
     ] },

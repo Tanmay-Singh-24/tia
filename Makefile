@@ -1,57 +1,65 @@
-.PHONY: install lint typecheck test check corpus map demo safety reproduce clean
+.PHONY: install lint typecheck test check corpus baseline maps reproduce reproduce-attrs published demo clean
+
+# Use the project venv when there is one, so `make` works without activating it.
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python)
 
 install:
-	python -m pip install -e ".[dev,eval]"
+	$(PYTHON) -m pip install -e ".[dev,eval]"
 
 lint:
-	ruff check src tests eval
-	ruff format --check src tests eval
+	$(PYTHON) -m ruff check src tests eval
+	$(PYTHON) -m ruff format --check src tests eval
 
 typecheck:
-	mypy --strict src/tia
+	$(PYTHON) -m mypy --strict src/tia
 
 test:
-	pytest
+	$(PYTHON) -m pytest
 
 check: lint typecheck test
 
 # --- the evaluation -------------------------------------------------------
-# Every published number comes from these targets and lands in eval/results/.
+# Every published number comes from eval/results/, and eval/published.json says
+# which files those are. These targets regenerate them.
 
-CORPUS ?= attrs
-SEED   ?= 1234
-N      ?= 50
+corpus-%:                    ## clone one pinned repo, install it, install tia into it
+	$(PYTHON) eval/corpus.py prepare --repo $*
 
-corpus:                       ## clone, install and verify the corpus repos
-	python eval/corpus.py prepare --repo attrs
-	python eval/corpus.py prepare --repo scrapy
+corpus: corpus-attrs corpus-scrapy
 
-baseline:                     ## optimised baselines, median of 5 runs
-	python eval/corpus.py baseline --repo attrs  --runs 5 --warmup 1
-	python eval/corpus.py baseline --repo scrapy --runs 5 --warmup 1
-	python eval/corpus.py table
+map-%:                       ## build the map for one corpus repo, e.g. make map-attrs
+	cd eval/.corpus/$*/repo && ../.venv/bin/tia build --jobs 10
 
-map:                          ## build the map for $(CORPUS)
-	cd eval/.corpus/$(CORPUS)/repo && ../.venv/bin/tia build --jobs 10
+maps: map-attrs map-scrapy
 
-safety:                       ## inject $(N) defects into $(CORPUS) and measure
-	python eval/harness.py --repo $(CORPUS) --experiment safety \
-		--n $(N) --seed $(SEED) --jobs auto
+replay-%:                    ## replay one repo's published experiment, both arms
+	$(PYTHON) eval/harness.py --repo $* --published
+	$(PYTHON) eval/harness.py --repo $* --published --no-import-graph
 
-demo:                         ## the review demo, on the attrs checkout
+published:                   ## print the table the README publishes
+	$(PYTHON) eval/report.py
+
+# Reproduce the published safety table. Replays the exact recorded mutations —
+# not a fresh sample, because a rebuilt map shifts which sites a seed picks
+# (D-0013) — with the settings each result was measured under, then checks the
+# outcome against the published files.
+#
+# Takes about 2.5 hours on an Apple M4: attrs ~50 min (200 mutants per arm,
+# serial) and scrapy ~90 min (30 per arm, but a 50-second suite).
+reproduce: corpus maps replay-attrs replay-scrapy
+	$(PYTHON) eval/report.py --compare
+
+# The same, attrs only. About an hour.
+reproduce-attrs: corpus-attrs map-attrs replay-attrs
+	$(PYTHON) eval/report.py --compare
+
+baseline:                    ## re-time the optimised baselines (D-0004, D-0005)
+	$(PYTHON) eval/corpus.py baseline --repo attrs  --runs 5 --warmup 1
+	$(PYTHON) eval/corpus.py baseline --repo scrapy --runs 5 --warmup 1
+	$(PYTHON) eval/corpus.py table
+
+demo:                        ## the review demo, on the attrs checkout
 	./scripts/demo.sh
 
-# Regenerate every published table from the pinned corpus. Long: it prepares
-# both repositories, rebuilds both maps and runs both safety experiments.
-reproduce: corpus baseline
-	$(MAKE) map CORPUS=attrs
-	$(MAKE) safety CORPUS=attrs
-	$(MAKE) map CORPUS=scrapy
-	$(MAKE) safety CORPUS=scrapy
-	python eval/corpus.py table
-	@echo
-	@echo "Results written to eval/results/. Every published number comes from"
-	@echo "one of those files."
-
-clean:                        ## remove corpus checkouts (results are kept)
+clean:                       ## remove corpus checkouts (results are kept)
 	rm -rf eval/.corpus
