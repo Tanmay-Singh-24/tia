@@ -266,8 +266,9 @@ def build(
         # Phase 2: the static import graph, built from the same set of source
         # files the map just recorded. It is what lets an import-time change
         # select the modules that import it instead of the whole suite.
-        source_paths = sorted(db.mapped_source_files(conn))
-        graph = importgraph.build(repo_root, source_paths, config.source_roots)
+        # Every known file, not just the covered ones — see db.all_known_files.
+        graph_paths = sorted(db.all_known_files(conn))
+        graph = importgraph.build(repo_root, graph_paths, config.source_roots)
         result.import_edges = db.record_import_edges(conn, graph.edges())
 
         result.build_duration_s = time.perf_counter() - build_started

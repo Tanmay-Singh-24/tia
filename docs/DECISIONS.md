@@ -741,3 +741,76 @@ the final numbers are frozen.
 
 **Evidence.** The two arm files above, and the `net_reduction` block now present
 in every safety result.
+
+---
+
+## D-0014 — The import graph let a defect through, twice, and scale is what found it
+
+**Date:** 2026-10-02 · **Area:** importgraph/selector · **Status:** accepted
+
+**Context.** At 50 mutants the import graph showed 0 misses on both corpus
+repositories. At 200 mutants on attrs it showed **1 miss in 184**, against 0 for
+the arm that ignored the closure. The defect was `conditional_forcing` on
+`src/attr/_cmp.py:88` — the same line as D-0009's miss. The rule written to
+close that hole had re-opened it.
+
+This is the falsification condition D-0012 was written with: *"if a miss ever
+appears on a mutant whose verdict was `IMPORT_CLOSURE`, the closure is not the
+superset we claim."* It appeared. The verdict was `IMPORT_CLOSURE`, 70 tests
+were selected, one test failed under the full suite, and none of the 70 was it.
+
+**Two independent faults, and the first fix was not enough.**
+
+*Fault 1 — the graph had no test files in it.* It was built from
+`mapped_source_files()`, which returns files carrying coverage rows. attrs runs
+coverage as `--cov=attr --cov=attrs`, so its test files have no coverage rows
+and were not nodes in the graph at all. The edge `tests/test_cmp.py -> attr`
+was never recorded, and the closure of `_cmp.py` was three source files. Fixed
+by building over `all_known_files()`: edges went 37 -> 104 and the closure
+reached `tests/test_cmp.py`.
+
+*Fault 2 — the closure then asked the wrong question.* `tests_for_file()`
+returns tests that **executed** a file. For a test file with no coverage rows it
+returns nothing, so reaching `tests/test_cmp.py` still yielded zero tests from
+it, while the 61 tests **defined** there sat in the `test` table untouched. The
+closure now unions `tests_for_file` with `tests_in_files`.
+
+**Measured, attrs, 200 mutants, seed 2026, one map and one site list per arm:**
+
+| | no graph | graph (faulty) | graph (fixed) |
+|---|---|---|---|
+| **Misses** | **0 / 184** | **1 / 184** | **0 / 184** |
+| Fallback frequency | 52.7% | 47.8% | 50.5% |
+| Net time reduction | 57.0% | 35.4% | 58.4% |
+| Selection precision, median | 62.5% | 50.0% | 55.2% |
+| Selections containing every failing test | 85 / 87 | 88 / 95 | 87 / 91 |
+
+**What this costs the Phase 2 story.** With the fault repaired, the import graph
+is worth almost nothing on attrs: 58.4% against 57.0%, and a fallback rate that
+barely moves. The earlier attrs result (51.1% fallback, 50.7% reduction) and
+the scrapy result (29.6%, 66.3%) were both produced by the faulty graph and are
+withdrawn pending re-measurement.
+
+**Three things worth taking from this.**
+
+1. **50 mutants was not enough.** The missed mutant is index 80 of 200. Every
+   safety claim this project made before today rested on a sample too small to
+   see it.
+2. **The first fix was convincing and insufficient.** Edges tripled, and the
+   closure visibly reached the right file. Only re-running the experiment showed
+   the defect still escaping. A fix verified by reasoning is not verified.
+3. **"No miss" is not "complete recall".** 4 of 91 selections contained only
+   some of the failing tests. They still caught the defect, so they are not
+   misses, but a selection holding one of five failing tests is fragile. The
+   `selections_containing_every_failing_test` figure is reported alongside the
+   miss rate for that reason.
+
+**How we would know this was wrong.** The regression test
+`test_import_closure_reaches_tests_defined_in_a_closure_file` builds a
+module-level dependency, injects a defect on that line, and asserts the
+dependent test is selected. If the miss rate on any repository is ever
+non-zero for an `IMPORT_CLOSURE` verdict again, the rule reverts to a
+full-suite fallback and the import graph is reported as measured and rejected.
+
+**Evidence.** `eval/results/safety_attrs_*_seed2026_*.json` — the no-graph arm,
+the faulty graph arm carrying the miss, and the fixed arm.

@@ -274,8 +274,17 @@ def _apply(
         # Phase 2: every module that transitively imports the changed file,
         # and every test that touched any of them.
         closure = db.import_closure(conn, change.lookup_path)
-        found = set()
-        for path in sorted(closure):
+        paths = sorted(closure)
+        # Two questions, both necessary. `tests_for_file` finds tests that
+        # EXECUTED a file, which is the right question for source. It returns
+        # nothing for a test file when the project measures coverage for its
+        # package only (`--cov=attr`), because then test files have no coverage
+        # rows at all — so `tests_in_files` asks the other question, which tests
+        # are DEFINED in it. Asking only the first let a defect through: the
+        # closure reached tests/test_cmp.py and then found nothing in it.
+        # See D-0014.
+        found = db.tests_in_files(conn, paths)
+        for path in paths:
             found |= db.tests_for_file(conn, path)
         limit = config.closure_max_fraction
         if total_tests and len(found) > limit * total_tests:

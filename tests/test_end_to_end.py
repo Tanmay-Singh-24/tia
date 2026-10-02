@@ -358,3 +358,44 @@ def test_changing_a_line_the_map_never_saw_widens_to_the_file(
         "a line the map never saw must never produce an empty selection"
     )
     assert len(decision.selected) >= 1
+
+
+def test_import_closure_reaches_tests_defined_in_a_closure_file(
+    mini_project: Path,
+) -> None:
+    """The closure must find tests DEFINED in a file it reaches, not only tests
+    that executed it.
+
+    This is D-0014, found at 200 mutants and not at 50. A project that measures
+    coverage for its package only records no coverage rows for its test files,
+    so asking "which tests executed this test file" returns nothing and the
+    closure silently yields an empty answer for exactly the dependency it
+    exists to find.
+    """
+    target = mini_project / "mini.py"
+    # A module-level call: its dependency on the source line is established at
+    # import time, so no test is ever recorded as covering it.
+    (mini_project / "tests" / "test_importtime.py").write_text(
+        "import mini\n\nPRECOMPUTED = mini.add(1, 2)\n\n\n"
+        "def test_precomputed():\n    assert PRECOMPUTED == 3\n",
+        encoding="utf-8",
+    )
+    _git(mini_project, "add", "-A")
+    _git(mini_project, "commit", "-m", "add an import-time dependency")
+    build_map(mini_project)
+    base = _git(mini_project, "rev-parse", "HEAD")
+
+    lines = target.read_text().splitlines(keepends=True)
+    lines[1] = "    return a - b\n"  # the defect, on the import-time line
+    target.write_text("".join(lines))
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "inject a defect")
+
+    decision = select(
+        mini_project, Config(packages=["mini"], upstream="main"), base=base
+    )
+    if decision.full_suite:
+        return  # falling back is always safe
+    assert any("test_importtime" in nodeid for nodeid in decision.selected), (
+        "the import-time dependent test must be selected, not silently dropped"
+    )

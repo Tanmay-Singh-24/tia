@@ -377,6 +377,20 @@ def all_test_nodeids(conn: sqlite3.Connection) -> set[str]:
     return {str(row["nodeid"]) for row in conn.execute("SELECT nodeid FROM test")}
 
 
+def all_known_files(conn: sqlite3.Connection) -> set[str]:
+    """Every path the map knows, whatever its kind.
+
+    The import graph must be built over this, not over the covered files
+    alone. A project that measures coverage for its package only (`--cov=attr`)
+    records no coverage rows for its test files, so building the graph from
+    covered files silently omits every edge that starts at a test — which is
+    the exact class of dependency the closure exists to find. That omission
+    produced a miss: see D-0014.
+    """
+    rows = conn.execute("SELECT path FROM file")
+    return {str(row["path"]) for row in rows}
+
+
 def mapped_source_files(conn: sqlite3.Connection) -> set[str]:
     rows = conn.execute(
         "SELECT DISTINCT f.path FROM file f JOIN coverage_line c ON c.file_id = f.id"
