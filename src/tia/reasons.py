@@ -97,7 +97,9 @@ DESCRIPTIONS: dict[Reason, str] = {
         "attributes such execution to no test at all, so a test whose "
         "dependency on this line was established while the module was being "
         "imported never appears as covering it. Line-level selection would "
-        "silently omit those tests, so the whole suite runs instead."
+        "silently omit those tests, so the whole suite runs instead. This is "
+        "the rule that removed the only miss the harness has ever found "
+        "(D-0009), and it is also the most expensive rule we have."
     ),
     Reason.MAP_STALE: (
         "The map was built at a commit that is not an ancestor of the change "
