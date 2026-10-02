@@ -155,10 +155,20 @@ def run_suite(
     )
 
 
-def tia_select(spec: RepoSpec, base: str, timeout_s: int) -> dict[str, Any] | None:
+def tia_select(
+    spec: RepoSpec, base: str, timeout_s: int, use_import_graph: bool = True
+) -> dict[str, Any] | None:
     """Ask tia for its decision as JSON."""
     result = run(
-        [str(spec.bin / "tia"), "select", "--base", base, "--format", "json"],
+        [
+            str(spec.bin / "tia"),
+            "select",
+            "--base",
+            base,
+            "--format",
+            "json",
+            *([] if use_import_graph else ["--no-import-graph"]),
+        ],
         cwd=spec.checkout,
         env=suite_env(spec),
         timeout_s=timeout_s,
@@ -212,6 +222,7 @@ def evaluate_one(
     base: str,
     timeout_s: int,
     jobs: str | None = None,
+    use_import_graph: bool = True,
 ) -> MutantResult:
     """Inject one defect, then answer: does the selection catch what the suite does?"""
     result = MutantResult(
@@ -248,7 +259,7 @@ def evaluate_one(
             result.note = "full suite passed; mutant is equivalent or undetectable"
             return result
 
-        decision = tia_select(spec, base, timeout_s)
+        decision = tia_select(spec, base, timeout_s, use_import_graph)
         if decision is None:
             result.note = "tia select produced no parseable decision"
             return result
@@ -314,6 +325,7 @@ def build_payload(
     map_commit: str,
     started: float,
     complete: bool,
+    use_import_graph: bool = True,
 ) -> dict[str, Any]:
     """The results document. Written after every mutant, not just at the end."""
     return {
@@ -331,12 +343,39 @@ def build_payload(
         "seed": seed,
         "requested": count,
         "jobs": jobs,
+        "use_import_graph": use_import_graph,
         "duration_s": round(time.perf_counter() - started, 1),
         "machine": machine_info(),
         "suite_args": spec.suite_args,
         "suite_paths": spec.suite_paths,
         "summary": summarise(results),
         "mutants": [r.as_dict() for r in results],
+    }
+
+
+def _net_reduction(results: list[MutantResult]) -> dict[str, Any]:
+    """Total suite time with tia against without, over non-timed-out mutants."""
+    kept = [r for r in results if r.full_suite_exit != -1 and r.selected_exit != -1]
+    if not kept:
+        return {"n": 0, "excluded_timeouts": len(results)}
+    without = sum(r.full_suite_s for r in kept)
+    with_tia = sum(
+        r.full_suite_s if r.full_suite_selected else r.selected_s for r in kept
+    )
+    per_mutant = [
+        1 - (r.full_suite_s if r.full_suite_selected else r.selected_s) / r.full_suite_s
+        for r in kept
+        if r.full_suite_s > 0
+    ]
+    return {
+        "n": len(kept),
+        "excluded_timeouts": len(results) - len(kept),
+        "without_tia_s": round(without, 1),
+        "with_tia_s": round(with_tia, 1),
+        "total_time_reduction": round(1 - with_tia / without, 4) if without else None,
+        "median_per_mutant": (
+            round(statistics.median(per_mutant), 4) if per_mutant else None
+        ),
     }
 
 
@@ -380,6 +419,14 @@ def summarise(results: list[MutantResult]) -> dict[str, Any]:
             "max": round(max(ratios), 6) if ratios else None,
             "mean": round(statistics.fmean(ratios), 6) if ratios else None,
         },
+        # The headline efficiency number, computed here rather than ad hoc so
+        # every report quotes the same definition. Runs that TIMED OUT are
+        # excluded by exit code: a timeout measures a hang, not a suite, and a
+        # single hung mutant at a 600s limit otherwise swamps a sum over
+        # mutants whose suite takes four seconds. (An earlier analysis excluded
+        # them with a hand-picked duration threshold, which silently changed
+        # the answer when the timeout setting changed.)
+        "net_reduction": _net_reduction(non_equivalent),
         "wall_clock_s": {
             "full_suite_median": (
                 round(statistics.median([r.full_suite_s for r in non_equivalent]), 3)
@@ -412,6 +459,7 @@ def safety(
     seed: int,
     timeout_s: int,
     jobs: str | None = None,
+    use_import_graph: bool = True,
 ) -> dict[str, Any]:
     """Run the safety experiment and write the results JSON."""
     map_file = db.map_path(spec.checkout)
@@ -442,11 +490,20 @@ def safety(
     started = time.perf_counter()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}.json"
+    arm = "graph" if use_import_graph else "nograph"
+    out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}_{arm}.json"
 
     results: list[MutantResult] = []
     for index, mutation in enumerate(mutations):
-        result = evaluate_one(spec, mutation, index, base, timeout_s, jobs=jobs)
+        result = evaluate_one(
+            spec,
+            mutation,
+            index,
+            base,
+            timeout_s,
+            jobs=jobs,
+            use_import_graph=use_import_graph,
+        )
         results.append(result)
 
         # Checkpoint after every mutant. An experiment that only writes its
@@ -463,6 +520,7 @@ def safety(
                     map_commit=map_commit,
                     started=started,
                     complete=index + 1 == len(mutations),
+                    use_import_graph=use_import_graph,
                 ),
                 indent=2,
             )
@@ -495,6 +553,7 @@ def safety(
         map_commit=map_commit,
         started=started,
         complete=True,
+        use_import_graph=use_import_graph,
     )
     out.write_text(json.dumps(payload, indent=2) + "\n")
     print(f"[{spec.name}] wrote {out.relative_to(ROOT)}", flush=True)
@@ -527,6 +586,18 @@ def report(payload: dict[str, Any]) -> None:
     clock = s["wall_clock_s"]
     print(f"  full suite median        {clock['full_suite_median']} s")
     print(f"  selected median          {clock['selected_median']} s")
+    net = s["net_reduction"]
+    if net.get("n"):
+        print(
+            f"\n  net time reduction       {net['total_time_reduction']:.1%} "
+            f"({net['without_tia_s']}s -> {net['with_tia_s']}s over {net['n']} mutants"
+            + (
+                f", {net['excluded_timeouts']} timed-out excluded)"
+                if net["excluded_timeouts"]
+                else ")"
+            )
+        )
+        print(f"  median per mutant        {net['median_per_mutant']:.1%}")
     if s["misses"]:
         print("\n  MISSES — each must be root-caused individually:")
         for miss in s["misses_detail"]:
@@ -543,6 +614,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--timeout", type=int, default=DEFAULT_SUITE_TIMEOUT_S)
     parser.add_argument(
+        "--no-import-graph",
+        action="store_true",
+        help="run the Phase 1 arm: selection ignores the import closure",
+    )
+    parser.add_argument(
         "--jobs",
         default=None,
         metavar="N",
@@ -557,6 +633,7 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
         timeout_s=args.timeout,
         jobs=args.jobs,
+        use_import_graph=not args.no_import_graph,
     )
     report(payload)
     return 1 if payload["summary"]["misses"] else 0

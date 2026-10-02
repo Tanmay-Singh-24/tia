@@ -11,7 +11,7 @@ The invariant this module exists to uphold: if anything at all is uncertain,
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -204,6 +204,7 @@ def _select_with_map(
         mapped_files=mapped,
         always_full=config.always_full,
         import_time_lookup=lambda path: db.import_time_lines(conn, path),
+        has_import_graph=config.use_import_graph and db.has_import_graph(conn),
     )
 
     fallbacks = [v.reason for v in verdicts if v.is_fallback]
@@ -214,13 +215,24 @@ def _select_with_map(
 
     selected: set[str] = set()
     explanations: list[Explanation] = []
-    for verdict in verdicts:
-        _apply(conn, verdict, selected, explanations)
+    # _apply may amend a verdict — widening an empty line lookup to the file,
+    # or abandoning an oversized import closure. The amended verdicts are what
+    # the decision reports, so the reason a user sees is the reason that ran.
+    resolved = [
+        _apply(conn, verdict, selected, explanations, config, total_tests)
+        for verdict in verdicts
+    ]
+
+    late_fallbacks = [v.reason for v in resolved if v.is_fallback]
+    if late_fallbacks:
+        decision = Decision(full_suite=True, verdicts=resolved, **common)
+        decision.fallback_reasons = late_fallbacks
+        return decision
 
     return Decision(
         full_suite=False,
         selected=selected,
-        verdicts=verdicts,
+        verdicts=resolved,
         explanations=explanations,
         **common,
     )
@@ -231,8 +243,15 @@ def _apply(
     verdict: Verdict,
     selected: set[str],
     explanations: list[Explanation],
-) -> None:
-    """Turn one non-fallback verdict into tests, recording why each was chosen."""
+    config: Config,
+    total_tests: int,
+) -> Verdict:
+    """Turn one non-fallback verdict into tests, recording why each was chosen.
+
+    Returns the verdict that actually applied, which may differ from the one
+    passed in: an empty line-level lookup widens to the file, and an import
+    closure that covers too much of the suite is abandoned.
+    """
     change: FileChange = verdict.change
     reason = verdict.reason
     found: set[str]
@@ -251,6 +270,24 @@ def _apply(
                 found |= db.tests_for_file(conn, path)
     elif reason == Reason.INSERTION_NO_HISTORY:
         found = db.tests_for_file(conn, change.lookup_path)
+    elif reason == Reason.IMPORT_CLOSURE:
+        # Phase 2: every module that transitively imports the changed file,
+        # and every test that touched any of them.
+        closure = db.import_closure(conn, change.lookup_path)
+        found = set()
+        for path in sorted(closure):
+            found |= db.tests_for_file(conn, path)
+        limit = config.closure_max_fraction
+        if total_tests and len(found) > limit * total_tests:
+            # Selecting most of the suite costs more to compute than it saves,
+            # and a closure that large is not meaningfully a selection.
+            return Verdict(
+                change,
+                Reason.CLOSURE_TOO_LARGE,
+                "all",
+                f"closure covers {len(found)} of {total_tests} tests "
+                f"(limit {limit:.0%})",
+            )
     else:  # Reason.SELECTED
         found = db.tests_for_lines(conn, change.lookup_path, change.old_lines)
         if not found:
@@ -260,10 +297,6 @@ def _apply(
             # ignorance, not proof that no test is affected, so widen to every
             # test that touched the file rather than selecting nothing.
             found = db.tests_for_file(conn, change.lookup_path)
-            # TODO: this labels the explanations but not Decision.primary_reason,
-            # which is derived from the classifier's verdict. The behaviour —
-            # widening instead of selecting nothing — is what the guarantee
-            # needs; the reporting should follow.
             reason = Reason.LINE_NOT_IN_MAP
 
     for nodeid in sorted(found - selected):
@@ -276,3 +309,4 @@ def _apply(
             )
         )
     selected |= found
+    return verdict if reason is verdict.reason else replace(verdict, reason=reason)

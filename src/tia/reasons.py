@@ -28,6 +28,8 @@ class Reason(StrEnum):
     USER_CONFIGURED = "USER_CONFIGURED"
     IMPORT_TIME_LINE = "IMPORT_TIME_LINE"
     LINE_NOT_IN_MAP = "LINE_NOT_IN_MAP"
+    IMPORT_CLOSURE = "IMPORT_CLOSURE"
+    CLOSURE_TOO_LARGE = "CLOSURE_TOO_LARGE"
     MAP_STALE = "MAP_STALE"
     NO_MAP = "NO_MAP"
     CLASSIFIER_ERROR = "CLASSIFIER_ERROR"
@@ -51,7 +53,7 @@ FALLBACK_REASONS: frozenset[Reason] = frozenset(
         Reason.NON_SOURCE_ASSET,
         Reason.USER_CONFIGURED,
         Reason.IMPORT_TIME_LINE,
-        Reason.LINE_NOT_IN_MAP,
+        Reason.CLOSURE_TOO_LARGE,
         Reason.MAP_STALE,
         Reason.NO_MAP,
         Reason.CLASSIFIER_ERROR,
@@ -94,6 +96,19 @@ DESCRIPTIONS: dict[Reason, str] = {
         "a line-level map yet any test may read them."
     ),
     Reason.USER_CONFIGURED: ("The path matches an always_full glob in .tia.toml."),
+    Reason.IMPORT_CLOSURE: (
+        "The changed line executed at import time, which the map cannot "
+        "attribute to any test. Rather than surrender the whole suite, the "
+        "static import graph names every module that transitively imports this "
+        "file, and the tests covering those modules are selected. This sees "
+        "`import` statements only: a module loaded by name at run time is "
+        "invisible to it, which is why the line-level map is kept as well."
+    ),
+    Reason.CLOSURE_TOO_LARGE: (
+        "The import closure of the changed file covers more of the suite than "
+        "the configured limit. Selecting almost everything costs more to "
+        "compute than it saves, so the whole suite runs instead."
+    ),
     Reason.LINE_NOT_IN_MAP: (
         "The changed line is in a mapped file but the map holds no coverage "
         "for that line itself — it is a continuation line, a blank, or part of "

@@ -23,7 +23,7 @@ from pathlib import Path
 
 from coverage import CoverageData
 
-from tia import db
+from tia import db, importgraph
 from tia.config import Config
 
 # The context coverage.py uses for lines executed outside any test.
@@ -42,6 +42,7 @@ class BuildResult:
     build_duration_s: float = 0.0
     suite_exit_code: int = 0
     db_bytes: int = 0
+    import_edges: int = 0
     skipped_contexts: list[str] = field(default_factory=list)
 
 
@@ -261,6 +262,13 @@ def build(
                 result.coverage_rows += len(rows)
             if import_time:
                 db.insert_import_time_lines(conn, import_time)
+
+        # Phase 2: the static import graph, built from the same set of source
+        # files the map just recorded. It is what lets an import-time change
+        # select the modules that import it instead of the whole suite.
+        source_paths = sorted(db.mapped_source_files(conn))
+        graph = importgraph.build(repo_root, source_paths, config.source_roots)
+        result.import_edges = db.record_import_edges(conn, graph.edges())
 
         result.build_duration_s = time.perf_counter() - build_started
         for key, value in {

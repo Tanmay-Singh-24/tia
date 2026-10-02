@@ -33,6 +33,22 @@ class Config:
     """Globs that always force the full suite (SPEC B.6, USER_CONFIGURED)."""
 
     source_roots: list[str] = field(default_factory=list)
+
+    use_import_graph: bool = True
+    """Whether selection may use the import closure (Phase 2).
+
+    Exists so the two designs can be compared on one map with one set of
+    mutation sites. Rebuilding the map changes which lines are covered, which
+    changes which sites a seeded sample picks — so a before/after run across a
+    rebuild is not a controlled comparison, and this flag is what makes one
+    possible."""
+
+    closure_max_fraction: float = 0.6
+    """Give up on the import closure once it reaches this share of the suite.
+
+    Selecting 80% of a suite costs more to work out than it saves. SPEC B.8
+    sets the default at 0.6; the value that is actually right is a measurement,
+    recorded in DECISIONS once the corpus has been run."""
     """Directories holding project source, e.g. ["src"]. Informational."""
 
     @staticmethod
@@ -50,6 +66,8 @@ class Config:
             upstream=str(table.get("upstream", DEFAULT_UPSTREAM)),
             always_full=list(table.get("always_full", [])),
             source_roots=list(table.get("source_roots", [])),
+            use_import_graph=bool(table.get("use_import_graph", True)),
+            closure_max_fraction=float(table.get("closure_max_fraction", 0.6)),
         )
 
 

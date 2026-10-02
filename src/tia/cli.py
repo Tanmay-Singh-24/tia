@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -193,10 +194,20 @@ def select_cmd(
         bool,
         typer.Option("--explain", help="Print changed line -> covering test -> why."),
     ] = False,
+    no_import_graph: Annotated[
+        bool,
+        typer.Option(
+            "--no-import-graph",
+            help="Ignore the import closure (Phase 1 behaviour), for A/B measurement.",
+        ),
+    ] = False,
 ) -> None:
     """Print the selection and exit. Runs no tests."""
     root = _root()
-    decision = select(root, Config.load(root), base=base)
+    settings = Config.load(root)
+    if no_import_graph:
+        settings = replace(settings, use_import_graph=False)
+    decision = select(root, settings, base=base)
 
     if output_format is SelectionFormat.JSON:
         typer.echo(json.dumps(decision.as_dict(), indent=2))

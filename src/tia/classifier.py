@@ -101,6 +101,7 @@ def classify(
     mapped_files: frozenset[str],
     always_full: list[str],
     import_time_lines: frozenset[int] = frozenset(),
+    has_import_graph: bool = False,
 ) -> Verdict:
     """Route one changed path to exactly one outcome.
 
@@ -162,6 +163,18 @@ def classify(
     # absence produced a measured miss: see D-0009.
     touched_at_import = sorted(change.old_lines & import_time_lines)
     if touched_at_import:
+        if has_import_graph:
+            # Phase 2. The map cannot say which tests depend on an import-time
+            # line, but the import graph can say which modules import this one.
+            # That is strictly more information than "run everything", and it
+            # is what makes this rule affordable — it accounted for every
+            # fallback measured on the corpus.
+            return Verdict(
+                change,
+                Reason.IMPORT_CLOSURE,
+                "closure",
+                f"line {touched_at_import[0]} also ran at import time",
+            )
         return Verdict(
             change,
             Reason.IMPORT_TIME_LINE,
@@ -179,6 +192,7 @@ def classify_all(
     mapped_files: frozenset[str],
     always_full: list[str],
     import_time_lookup: Callable[[str], frozenset[int]] | None = None,
+    has_import_graph: bool = False,
 ) -> list[Verdict]:
     """Classify every change. A classifier that raises falls back, never fails."""
     verdicts: list[Verdict] = []
@@ -195,6 +209,7 @@ def classify_all(
                     mapped_files=mapped_files,
                     always_full=always_full,
                     import_time_lines=lines,
+                    has_import_graph=has_import_graph,
                 )
             )
         except Exception as exc:  # noqa: BLE001 - an error must never mean fewer tests

@@ -300,6 +300,64 @@ def tests_covering_line(conn: sqlite3.Connection, path: str, lineno: int) -> lis
     return sorted(tests_for_lines(conn, path, [lineno]))
 
 
+def record_import_edges(conn: sqlite3.Connection, edges: list[tuple[str, str]]) -> int:
+    """Persist (importer, imported) pairs. Returns the number stored."""
+    stored = 0
+    for importer, imported in edges:
+        importer_id = file_id_for(conn, importer)
+        imported_id = file_id_for(conn, imported)
+        if importer_id is None or imported_id is None:
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO import_edge (importer_file_id, imported_file_id)"
+            " VALUES (?, ?)",
+            (importer_id, imported_id),
+        )
+        stored += 1
+    return stored
+
+
+def has_import_graph(conn: sqlite3.Connection) -> bool:
+    """Whether this map carries an import graph at all.
+
+    A map built before Phase 2 has none, and the closure rule must then fall
+    back rather than silently behave as though nothing imports anything.
+    """
+    row = conn.execute("SELECT 1 FROM import_edge LIMIT 1").fetchone()
+    return row is not None
+
+
+def importers_of(conn: sqlite3.Connection, path: str) -> set[str]:
+    """Files that directly import `path`."""
+    file_id = file_id_for(conn, path)
+    if file_id is None:
+        return set()
+    rows = conn.execute(
+        "SELECT f.path FROM import_edge e JOIN file f ON f.id = e.importer_file_id"
+        " WHERE e.imported_file_id = ?",
+        (file_id,),
+    )
+    return {str(row["path"]) for row in rows}
+
+
+def import_closure(conn: sqlite3.Connection, path: str) -> set[str]:
+    """Every file that transitively imports `path`, including `path` itself."""
+    seen = {path}
+    queue = [path]
+    while queue:
+        current = queue.pop()
+        for importer in importers_of(conn, current):
+            if importer not in seen:
+                seen.add(importer)
+                queue.append(importer)
+    return seen
+
+
+def import_edge_count(conn: sqlite3.Connection) -> int:
+    row = conn.execute("SELECT COUNT(*) AS n FROM import_edge").fetchone()
+    return int(row["n"]) if row else 0
+
+
 def covered_lines(conn: sqlite3.Connection, path: str) -> set[int]:
     """Every line of this file that some test executed.
 
