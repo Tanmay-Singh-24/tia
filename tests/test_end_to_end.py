@@ -270,13 +270,18 @@ def test_same_size_mutation_is_invisible_without_invalidation(
     mutated = original.replace("    return a + b\n", "    return a - b\n")
     assert len(mutated) == len(original), "only meaningful at equal size"
 
-    # Warm a .pyc by importing the module the ordinary way.
+    # Warm a .pyc by importing the module the ordinary way. Bytecode writing is
+    # switched on explicitly: if the caller's environment carries
+    # PYTHONDONTWRITEBYTECODE, no cache is written and the precondition below
+    # fails for a reason that has nothing to do with what this test pins.
+    warm_env = {k: v for k, v in os.environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
     warm = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
         cwd=mini_project,
         capture_output=True,
         text=True,
         check=False,
+        env=warm_env,
     )
     assert warm.returncode == 0
     cached = Path(importlib.util.cache_from_source(str(source)))

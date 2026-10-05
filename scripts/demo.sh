@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The Review 1 demo, end to end, on a real repository.
+# The review demo, end to end, on a real repository.
 #
 # Runs against the attrs corpus checkout: 1412 real tests from a widely used
 # library, not a toy project. Needs no network and no 30-minute suite run.
@@ -17,6 +17,8 @@ CORPUS="$REPO_ROOT/eval/.corpus/attrs/repo"
 VENV="$REPO_ROOT/eval/.corpus/attrs/.venv"
 TARGET="src/attr/_funcs.py"
 LINE=377
+MISS_FILE="src/attr/_cmp.py"   # the line behind both misses (D-0009, D-0014)
+MISS_LINE=88
 
 step() { printf '\n\033[1m=== %s ===\033[0m\n' "$1"; }
 pause() { if [ -t 0 ]; then read -rp "  [enter] " _; fi; }
@@ -29,7 +31,7 @@ fi
 cd "$CORPUS"
 export PATH="$VENV/bin:$PATH"
 cleanup() {
-    git -C "$CORPUS" checkout -- "$TARGET" 2>/dev/null || true
+    git -C "$CORPUS" checkout -- "$TARGET" "$MISS_FILE" 2>/dev/null || true
     rm -f "$CORPUS/requirements-demo.txt"
     git -C "$CORPUS" reset -q 2>/dev/null || true
 }
@@ -72,8 +74,24 @@ echo "some-package==1.0" > requirements-demo.txt
 git add -N requirements-demo.txt
 tia select 2>&1 | tail -3
 echo
-echo "  Nine of the fourteen classifier rules give up the speed benefit on"
+echo "  Ten of the eighteen possible outcomes give up the speed benefit on"
 echo "  purpose. How often that fires is the fallback frequency we publish."
+pause
+
+step "7. The line that fooled tia twice"
+rm -f requirements-demo.txt
+git reset -q
+echo "  \$ tia explain $MISS_FILE:$MISS_LINE"
+tia explain "$MISS_FILE:$MISS_LINE" 2>&1 | head -1
+echo
+echo "  Only 2 tests ever ran this line, but 6 depend on it: a test file uses it"
+echo "  while loading, before any test starts. That gap caused both of our misses."
+echo
+sed -i '' "${MISS_LINE}s/\$/  # touched/" "$MISS_FILE"
+echo "  change that line, and ask again:"
+tia select 2>&1 | head -1
+echo
+echo "  Today tia refuses to guess on it and runs everything."
 
 step "done"
 git checkout -- "$TARGET"
