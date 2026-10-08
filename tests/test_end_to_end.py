@@ -666,3 +666,23 @@ def test_a_map_that_recorded_no_environment_is_not_trusted(mini_project: Path) -
     decision = select(mini_project, Config(packages=["mini"], upstream="main"))
     assert decision.primary_reason is Reason.ENVIRONMENT_CHANGED
     assert "records no environment" in decision.detail
+
+
+def test_status_never_calls_a_map_fresh_that_selection_would_refuse(
+    mini_project: Path,
+) -> None:
+    """tia status used the old ancestor rule, so after main moved it reported
+    "fresh" while every selection fell back with MAP_STALE."""
+    build_map(mini_project)
+    (mini_project / "NOTES.txt").write_text("main moves on\n")
+    _git(mini_project, "add", "NOTES.txt")
+    _git(mini_project, "commit", "-m", "main moves on")
+    status = subprocess.run(
+        [sys.executable, "-m", "tia.cli", "status"],
+        cwd=mini_project,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "MAP_STALE" in status.stdout, status.stdout + status.stderr
+    assert "fresh" not in status.stdout.split("freshness")[1].splitlines()[0]

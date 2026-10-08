@@ -82,9 +82,11 @@ def test_the_project_under_test_is_not_part_of_the_environment(tmp_path: Path) -
     would make every CI selection fall back."""
     repo = tmp_path / "repo"
     (repo / "src").mkdir(parents=True)
-    inside = f'{{"url": "file://{repo}", "dir_info": {{"editable": true}}}}'
-    nested = f'{{"url": "file://{repo / "src"}", "dir_info": {{}}}}'
-    outside = f'{{"url": "file://{tmp_path / "elsewhere"}", "dir_info": {{}}}}'
+    # as_uri() builds real file URLs, as pip writes them: file:///C:/... on
+    # Windows. Formatting a path into "file://{path}" does not.
+    inside = f'{{"url": "{repo.as_uri()}", "dir_info": {{"editable": true}}}}'
+    nested = f'{{"url": "{(repo / "src").as_uri()}", "dir_info": {{}}}}'
+    outside = f'{{"url": "{(tmp_path / "elsewhere").as_uri()}", "dir_info": {{}}}}'
     assert installed_from_inside(inside, repo)
     assert installed_from_inside(nested, repo)
     assert not installed_from_inside(outside, repo)

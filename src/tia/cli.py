@@ -25,7 +25,7 @@ import typer
 from tia import __version__, db, diff, mapper
 from tia.config import CONFIG_FILENAME, Config, render_template
 from tia.reasons import Reason
-from tia.selector import Decision, select
+from tia.selector import Decision, map_problem, select
 
 EXIT_OK = 0
 EXIT_TEST_FAILURE = 1
@@ -43,7 +43,7 @@ class SelectionFormat(StrEnum):
 app = typer.Typer(
     name="tia",
     help=(
-        "Run only the tests a change can affect — and the full suite whenever "
+        "Run only the tests a change can affect - and the full suite whenever "
         "that cannot be established."
     ),
     add_completion=False,
@@ -262,7 +262,7 @@ def run(
 
     if decision.full_suite:
         _echo_err(
-            f"tia: full suite ({decision.primary_reason.value}) — "
+            f"tia: full suite ({decision.primary_reason.value}) - "
             f"{decision.primary_reason.description}",
             "yellow",
         )
@@ -286,9 +286,10 @@ def run(
 def status() -> None:
     """Report map freshness: commit, size, test count, age."""
     root = _root()
+    config = Config.load(root)
     map_file = db.map_path(root)
     if not map_file.exists():
-        _echo_err(f"tia: no map at {map_file.relative_to(root)} — run `tia build`")
+        _echo_err(f"tia: no map at {map_file.relative_to(root)} - run `tia build`")
         raise typer.Exit(code=EXIT_MAP_UNUSABLE)
 
     conn = db.connect(map_file)
@@ -299,10 +300,15 @@ def status() -> None:
         conn.close()
 
     commit = meta.get("built_at_commit", "")
+    conn = db.connect(map_file)
+    try:
+        problem = map_problem(conn, root, diff.resolve_base(root, config.upstream))
+    finally:
+        conn.close()
     fresh = (
         "fresh"
-        if commit and diff.is_ancestor(root, commit, diff.head_commit(root))
-        else "STALE — the map's commit is not an ancestor of HEAD"
+        if problem is None
+        else f"NOT USABLE - {problem[0].value}: {problem[1]}. Run `tia build`."
     )
     size_mb = (counts["size_bytes"] or 0) / 1_048_576
     typer.echo(f"map          {map_file.relative_to(root)}")
@@ -335,7 +341,7 @@ def explain(
 
     map_file = db.map_path(root)
     if not map_file.exists():
-        _echo_err(f"tia: no map — run `tia build` ({Reason.NO_MAP.value})")
+        _echo_err(f"tia: no map - run `tia build` ({Reason.NO_MAP.value})")
         raise typer.Exit(code=EXIT_MAP_UNUSABLE)
 
     conn = db.connect(map_file)
@@ -353,13 +359,20 @@ def explain(
         typer.echo(f"{path}:{lineno} is in the map but no test executed it.")
         typer.echo("  A change here selects nothing by line.")
         return
-    typer.echo(f"{path}:{lineno} — {len(covering)} tests executed this line:")
+    typer.echo(f"{path}:{lineno} - {len(covering)} tests executed this line:")
     for nodeid in covering:
         typer.echo(f"  {nodeid}")
 
 
 def main() -> None:
     """Console-script entry point."""
+    # tia's own messages are ASCII, but a test name or path can hold anything.
+    # On a console whose code page lacks a character, printing it would raise;
+    # replace it instead, because a report must never crash the tool.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="replace")
     app()
 
 

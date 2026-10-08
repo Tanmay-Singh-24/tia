@@ -113,7 +113,7 @@ DESCRIPTIONS: dict[Reason, str] = {
     ),
     Reason.LINE_NOT_IN_MAP: (
         "The changed line is in a mapped file but the map holds no coverage "
-        "for that line itself — it is a continuation line, a blank, or part of "
+        "for that line itself - it is a continuation line, a blank, or part of "
         "a multi-line statement that coverage attributes elsewhere. An empty "
         "line-level lookup is not evidence that no test is affected, so "
         "selection widens to every test that touched the file."

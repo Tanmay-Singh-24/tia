@@ -25,6 +25,7 @@ from tia.diff import (
     changed_lines,
     head_commit,
     resolve_base,
+    short,
 )
 from tia.environment import differences, fingerprint
 from tia.reasons import Reason
@@ -200,6 +201,37 @@ class Decision:
         }
 
 
+def map_problem(
+    conn: sqlite3.Connection, repo_root: Path, branch_point: str
+) -> tuple[Reason, str] | None:
+    """Why this map cannot be trusted for a change branching from `branch_point`.
+
+    None means it can. Selection and `tia status` both ask this, so the status
+    line can never call a map fresh that selection would refuse.
+    """
+    map_commit = db.get_meta(conn, "built_at_commit") or ""
+    # The map speaks the line numbers of exactly one commit. It is trusted only
+    # when that commit IS the branch point; "is an ancestor of it" is not
+    # enough, because if main moved on, the same line number names different
+    # code (D-0016).
+    if map_commit and map_commit != branch_point:
+        return (
+            Reason.MAP_STALE,
+            f"map built at {short(map_commit)}, this change branches from "
+            f"{short(branch_point)}",
+        )
+    # Equally specific to the environment it was built in: the code paths
+    # coverage recorded depend on the Python version, platform and packages
+    # (D-0019).
+    recorded = db.get_meta(conn, "environment")
+    changed = differences(
+        json.loads(recorded) if recorded else None, fingerprint(repo_root)
+    )
+    if changed:
+        return Reason.ENVIRONMENT_CHANGED, "; ".join(changed[:3])
+    return None
+
+
 def fallback(reason: Reason, detail: str = "", **kwargs: Any) -> Decision:
     """Abandon selection. Always says why."""
     return Decision(full_suite=True, fallback_reasons=[reason], detail=detail, **kwargs)
@@ -273,20 +305,10 @@ def _select_with_map(
     # when that commit IS the branch point. "Is an ancestor of it" is not
     # enough: if main moved on in between, the same line number names
     # different code, and the selection is confidently wrong (D-0016).
-    if map_commit and map_commit != resolved_base:
-        return fallback(Reason.MAP_STALE, **common)
-
-    # The map is equally specific to the environment it was built in: the code
-    # paths coverage recorded depend on the Python version, the platform and
-    # the installed packages (D-0019).
-    recorded = db.get_meta(conn, "environment")
-    changed = differences(
-        json.loads(recorded) if recorded else None, fingerprint(repo_root)
-    )
-    if changed:
-        return fallback(
-            Reason.ENVIRONMENT_CHANGED, detail="; ".join(changed[:3]), **common
-        )
+    problem = map_problem(conn, repo_root, resolved_base)
+    if problem is not None:
+        reason, detail = problem
+        return fallback(reason, detail=detail, **common)
 
     try:
         changes = changed_lines(

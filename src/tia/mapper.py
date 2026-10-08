@@ -213,7 +213,7 @@ def build(
             f" and {len(dirty) - 5} more" if len(dirty) > 5 else ""
         )
         raise DirtyTreeError(
-            f"uncommitted Python changes: {shown}. Commit or stash them first — "
+            f"uncommitted Python changes: {shown}. Commit or stash them first - "
             "a map is only valid for the exact commit it was built at."
         )
     build_started = time.perf_counter()
