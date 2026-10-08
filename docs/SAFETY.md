@@ -151,20 +151,25 @@ The claim "tia is safe" is not made. What is made is a measurement:
 A single miss is a failure of the core guarantee and is root-caused
 individually in the report rather than averaged away.
 
-**Current status — both corpus repositories**
+**Current status — both corpus repositories, measured on 0.2.0**
 
 | | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
 |---|---|---|---|---|
-| Non-equivalent defects | 184 | 184 | 27 | 27 |
+| Non-equivalent defects | 185 | 185 | 28 | 28 |
 | **Misses** | **0** | **0** | **0** | **0** |
-| Fallback frequency | 52.7% | 50.5% | 59.3% | 29.6% |
-| Net time reduction | 57.0% | **58.4%** | 40.4% | **65.2%** |
-| Selection precision, median | 62.5% | 55.2% | 25.0% | 9.8% |
-| Selections holding every failing test | 85/87 | 87/91 | 11/11 | 14/19 |
+| Fallback frequency | 52.4% | 50.3% | 57.1% | 28.6% |
+| Time saved per change | 41.9% | **42.7%** | 44.2% | **66.9%** |
+| Selection precision, median | 50.0% | 50.0% | 31.2% | 11.2% |
+| Selections holding every failing test | 84 / 87 | 88 / 91 | 11 / 12 | 15 / 20 |
 
-Zero misses in 211 non-equivalent injected defects. That is the result the tool
+Zero misses in 213 non-equivalent injected defects. That is the result the tool
 exists for, and it is worth saying what it cost: on roughly three changes in ten
 to scrapy and one in two to attrs, tia runs the whole suite and saves nothing.
+Time saved is the mean share of the suite saved per change ([D-0020](DECISIONS.md)); an
+earlier summed-seconds figure overstated attrs at 58.4%.
+
+**These are two repositories at 30-200 mutants each.** Not enough to put a
+confidence interval on, and not a claim about your codebase.
 
 **An earlier version of the import graph let a defect through** — 1 miss in 184,
 found only when the sample was raised from 50 to 200. Two independent faults,

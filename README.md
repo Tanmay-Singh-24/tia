@@ -11,8 +11,8 @@
   <a href="https://github.com/Tanmay-Singh-24/tia/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Tanmay-Singh-24/tia/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="Licence" src="https://img.shields.io/badge/licence-MIT-blue"></a>
   <br>
-  <img alt="Misses" src="https://img.shields.io/badge/missed%20defects-0%20of%20211-2E7D62">
-  <img alt="Suite time" src="https://img.shields.io/badge/test%20time-%E2%88%9265.2%25%20on%20scrapy-2E7D62">
+  <img alt="Misses" src="https://img.shields.io/badge/missed%20defects-0%20of%20213-2E7D62">
+  <img alt="Suite time" src="https://img.shields.io/badge/test%20time-%E2%88%9266.9%25%20on%20scrapy-2E7D62">
 </p>
 
 ---
@@ -87,16 +87,17 @@ numbers rather than adjectives.
 
 | | attrs | scrapy |
 |---|---|---|
-| Suite (full run, median) | 1,334 tests, 3.8 s | 4,371 tests, 52 s |
-| Defects deliberately injected | 184 | 27 |
+| Suite (full run, median) | 1,334 tests, 3.9 s | 4,371 tests, 53.5 s |
+| Defects deliberately injected, detectable | 185 | 28 |
 | **Defects it let through** | **0** | **0** |
-| Test time saved | 58.4% | **65.2%** |
-| Changes where it gave up and ran everything | 50.5% | 29.6% |
+| Test time saved, per change | 42.7% | **66.9%** |
+| Changes where it gave up and ran everything | 50.3% | 28.6% |
 
-**It helps most where your suite is slow.** On scrapy's 52-second suite it
-saves two thirds of the time. On a four-second suite it saves almost nothing,
-because starting pytest at all is most of the cost. If your suite finishes in
-seconds, you don't need this.
+**It helps most where your suite is slow.** The percentages look similar; the
+seconds do not. On scrapy's 53-second suite, two-thirds saved is roughly half a
+minute per change. On attrs' 4-second suite, 43% saved is under two seconds,
+because starting pytest at all is a large part of the cost. If your suite
+finishes in seconds, you don't need this.
 
 ## It has let defects through before
 
@@ -172,39 +173,44 @@ broken map must never mean "no tests ran".
 **Safety validation.** One defect injected at a time; the full suite must catch
 it or the mutant is excluded as equivalent; then the selection runs. If the
 selection passes where the full suite failed, that is a **miss**. attrs was run
-at 200 mutants (seed 2026), scrapy at 30 (seed 1234). Each pair shares one map
-and one set of mutation sites and differs only in whether the import closure is
-consulted.
+at 200 mutants (seed 2026), scrapy at 30 (seed 1234). Each pair replays one
+fixed list of mutations and differs only in whether the import closure is
+consulted. These are 0.2.0 measurements: the selection runs exactly what the
+shipped tool runs.
 
 | | attrs, no graph | attrs, graph | scrapy, no graph | scrapy, graph |
 |---|---|---|---|---|
-| Non-equivalent defects | 184 | 184 | 27 | 27 |
+| Non-equivalent defects | 185 | 185 | 28 | 28 |
 | **Misses** | **0** | **0** | **0** | **0** |
-| Fallback frequency | 52.7% | 50.5% | 59.3% | 29.6% |
-| Net time reduction | 57.0% | **58.4%** | 40.4% | **65.2%** |
-| Selection precision, median | 62.5% | 55.2% | 25.0% | 9.8% |
-| Selections holding every failing test | 85/87 | 87/91 | 11/11 | 14/19 |
+| Fallback frequency | 52.4% | 50.3% | 57.1% | 28.6% |
+| Time saved per change | 41.9% | **42.7%** | 44.2% | **66.9%** |
+| Selection precision, median | 50.0% | 50.0% | 31.2% | 11.2% |
+| Selections holding every failing test | 84 / 87 | 88 / 91 | 11 / 12 | 15 / 20 |
 
-**Zero misses in 211 non-equivalent injected defects** across two real
+**Zero misses in 213 non-equivalent injected defects** across two real
 codebases — after the import graph was caught letting one through at 200
 mutants and repaired (D-0014).
 
+**Time saved is the mean share of the suite's time saved per change.** Each
+change counts once, whether its suite run took 4 seconds or 291. An earlier
+version of this table summed seconds instead, and one mutant that hung the
+suite for 291 seconds inflated the attrs figure to 58.4%; the real figure is
+about 43%. [D-0020](docs/DECISIONS.md) has the whole account.
+
 **The import graph pays off in proportion to suite duration, not test count.**
-On scrapy, whose suite takes 52 s, it halves the fallback rate and lifts the
-saving from 40.4% to 65.2%. On attrs, whose suite takes 3.9 s, it is worth
-almost nothing — 58.4% against 57.0% — because pytest's own startup is the
-floor and there is nothing left to buy.
+On scrapy it halves the fallback rate and lifts the saving from 44.2% to 66.9%.
+On attrs it is worth almost nothing — 42.7% against 41.9% — because the suite
+takes four seconds and pytest's own startup is the floor.
 
-**Precision is the honest cost of conservatism.** A median of 55.2% on attrs
-and 9.8% on scrapy: the closure selects broadly, and many selected tests do not
-fail. That is what keeps the miss rate at zero. Note also that "no miss" is not
-complete recall — on scrapy, 14 of 19 selections contained *every* failing test;
-the others caught the defect with only some of them.
+**Precision is the honest cost of conservatism.** Of the tests tia selects, a
+median of 50.0% actually fail on attrs and 11.2% on scrapy: it selects broadly
+— every parametrisation of a chosen test, every test that imports a changed
+module — and that breadth is what keeps the miss rate at zero. "No miss" is not
+complete recall either: some selections held only some of the failing tests,
+and still caught the defect.
 
-Results: [`safety_attrs_2026-10-02T161902Z_seed2026_nograph.json`](eval/results/safety_attrs_2026-10-02T161902Z_seed2026_nograph.json),
-[`safety_attrs_2026-10-02T174240Z_seed2026_graph.json`](eval/results/safety_attrs_2026-10-02T174240Z_seed2026_graph.json),
-[`safety_scrapy_2026-10-02T191409Z_seed1234_nograph.json`](eval/results/safety_scrapy_2026-10-02T191409Z_seed1234_nograph.json),
-[`safety_scrapy_2026-10-02T182614Z_seed1234_graph.json`](eval/results/safety_scrapy_2026-10-02T182614Z_seed1234_graph.json).
+Results: [`safety_attrs_2026-10-08T110119Z_seed2026_nograph_replay.json`](eval/results/safety_attrs_2026-10-08T110119Z_seed2026_nograph_replay.json), [`safety_attrs_2026-10-08T101628Z_seed2026_graph_replay.json`](eval/results/safety_attrs_2026-10-08T101628Z_seed2026_graph_replay.json),
+[`safety_scrapy_2026-10-08T122932Z_seed1234_nograph_replay.json`](eval/results/safety_scrapy_2026-10-08T122932Z_seed1234_nograph_replay.json), [`safety_scrapy_2026-10-08T114237Z_seed1234_graph_replay.json`](eval/results/safety_scrapy_2026-10-08T114237Z_seed1234_graph_replay.json).
 
 **Still unmeasured:** fallback frequency over real historical commits, a third
 codebase, and whether 0.6 is the right closure limit. No published number moves

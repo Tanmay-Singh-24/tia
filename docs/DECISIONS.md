@@ -1140,3 +1140,12 @@ were quoted.
 this metric by more than a couple of points — which would mean some other
 outlier mechanism is at work. The comparison is cheap, and `report.py --compare`
 shows it.
+
+**Addendum — the 0.2.0 re-measurement becomes the published result.** All four
+arms were replayed under the shipped behaviour (selection by test function,
+D-0018), each running exactly the published mutation list. Every miss count
+matched; time saved per change agreed within two points on every arm (attrs
+41.9% and 42.7%, scrapy 44.2% and 66.9%). Precision fell where expected —
+selecting every parametrisation runs more tests that pass. `eval/published.json`
+now names these four files; the figures in the README, SAFETY.md and the decks
+come from them. Shipped configuration: 0 misses in 213 non-equivalent defects.

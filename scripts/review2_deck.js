@@ -112,7 +112,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     fontFace: H, fontSize: 24, color: "AFC0CE", isTextBox: true, margin: 0,
   });
   s.addText(
-    "Zero missed defects across 211 injected into two real codebases, at up to 65.2% less test time.",
+    "Zero missed defects across 213 injected into two real codebases, saving up to 66.9% of test time per change.",
     { x: MARGIN, y: 3.95, w: 7.6, h: 0.8, fontFace: B, fontSize: 14, color: "8DA0B0", isTextBox: true, margin: 0 }
   );
   s.addText("FINAL REVIEW", {
@@ -135,21 +135,21 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
 {
   const s = pres.addSlide();
   titleSlide(s, "What we are claiming, and what it rests on", "the result");
-  statCard(s, MARGIN, 1.85, 3.8, "0 / 211", "missed defects", GOOD, "attrs at 200 mutants, scrapy at 30");
-  statCard(s, 4.75, 1.85, 3.8, "65.2%", "less test time on scrapy", GOOD, "58.4% on attrs");
-  statCard(s, 8.8, 1.85, 3.8, "29.6%", "of changes run everything", AMBER, "50.5% on attrs — the honest cost");
+  statCard(s, MARGIN, 1.85, 3.8, "0 / 213", "missed defects", GOOD, "attrs at 200 mutants, scrapy at 30");
+  statCard(s, 4.75, 1.85, 3.8, "66.9%", "test time saved per change", GOOD, "scrapy; 42.7% on attrs");
+  statCard(s, 8.8, 1.85, 3.8, "28.6%", "of changes run everything", AMBER, "50.3% on attrs — the honest cost");
 
   table(
     s, MARGIN, 3.95, 11.9,
     ["", "attrs", "scrapy"],
     [
       ["Tests in the suite", "1,334", "4,371"],
-      ["Full suite, median", "3.8 s", "52 s"],
-      ["Non-equivalent defects injected", "184", "27"],
+      ["Full suite, median", "3.9 s", "53.5 s"],
+      ["Non-equivalent defects injected", "185", "28"],
       [{ text: "Misses", options: { bold: true } }, { text: "0", options: { bold: true, color: GOOD } }, { text: "0", options: { bold: true, color: GOOD } }],
-      ["Fallback rate", "50.5%", "29.6%"],
-      ["Net time reduction", "58.4%", "65.2%"],
-      ["Selection precision, median", "55.2%", "9.8%"],
+      ["Fallback rate", "50.3%", "28.6%"],
+      ["Time saved per change", "42.7%", "66.9%"],
+      ["Selection precision, median", "50.0%", "11.2%"],
     ],
     [5.1, 3.4, 3.4], { rowH: 0.36 }
   );
@@ -298,10 +298,10 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     s, MARGIN, 2.3, 11.9,
     ["", "attrs: no graph", "attrs: graph", "scrapy: no graph", "scrapy: graph"],
     [
-      [{ text: "Misses", options: { bold: true } }, "0 / 184", { text: "0 / 184", options: { color: GOOD, bold: true } }, "0 / 27", { text: "0 / 27", options: { color: GOOD, bold: true } }],
-      ["Fallback frequency", "52.7%", "50.5%", "59.3%", { text: "29.6%", options: { color: GOOD, bold: true } }],
-      ["Net time reduction", "57.0%", "58.4%", "40.4%", { text: "65.2%", options: { color: GOOD, bold: true } }],
-      ["Precision, median", "62.5%", "55.2%", "25.0%", "9.8%"],
+      [{ text: "Misses", options: { bold: true } }, "0 / 185", { text: "0 / 185", options: { color: GOOD, bold: true } }, "0 / 28", { text: "0 / 28", options: { color: GOOD, bold: true } }],
+      ["Fallback frequency", "52.4%", "50.3%", "57.1%", { text: "28.6%", options: { color: GOOD, bold: true } }],
+      ["Time saved per change", "41.9%", "42.7%", "44.2%", { text: "66.9%", options: { color: GOOD, bold: true } }],
+      ["Precision, median", "50.0%", "50.0%", "31.2%", "11.2%"],
     ],
     [3.1, 2.2, 2.2, 2.2, 2.2], { rowH: 0.42 }
   );
@@ -309,7 +309,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
   s.addText("It helps where the suite is slow, and nowhere else.", {
     x: MARGIN + 0.35, y: 4.68, w: 11.2, h: 0.35, fontFace: H, fontSize: 16, bold: true, color: ACCENT, isTextBox: true, margin: 0,
   });
-  s.addText("On scrapy, whose suite takes 52 seconds, the graph halves the fallback rate and lifts the saving from 40.4% to 65.2%. On attrs, whose suite takes 3.9 seconds, it is worth almost nothing: 58.4% against 57.0%, with the fallback rate barely moving.\n\nThe property that predicts the benefit is absolute suite duration, not test count and not closure size. A four-second suite has nothing left to give once pytest's own startup is paid — which is the same floor that makes parallelism slower than serial on flask.", {
+  s.addText("On scrapy, whose suite takes 53 seconds, the graph halves the fallback rate and lifts the saving from 44.2% to 66.9%. On attrs, whose suite takes 3.9 seconds, it is worth almost nothing: 42.7% against 41.9%, with the fallback rate barely moving.\n\nThe property that predicts the benefit is absolute suite duration, not test count and not closure size. A four-second suite has nothing left to give once pytest's own startup is paid — which is the same floor that makes parallelism slower than serial on flask.", {
     x: MARGIN + 0.35, y: 5.08, w: 11.2, h: 1.2, fontFace: B, fontSize: 12, color: INK, lineSpacing: 17, isTextBox: true, margin: 0,
   });
   note(s, "If asked why the result is modest on attrs: a four-second suite has nothing to give. That is a finding about where this technique pays, not a failure of it.");
@@ -318,7 +318,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
 // ---------------------------------------------------------------- 8. methodology
 {
   const s = pres.addSlide();
-  titleSlide(s, "Two ways our own measurements lied", "methodology");
+  titleSlide(s, "Three ways our own measurements lied", "methodology");
   const cards = [
     { x: MARGIN, tag: "D-0013 · fault 1", head: "A before/after across a map rebuild is not a controlled comparison",
       body: "Mutation sites are sampled from the lines the map records as covered. Rebuilding the map shifts that set slightly — 508,939 rows against 508,929 on the same commit — so the same seed selects different mutants.",
@@ -327,7 +327,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     { x: 7.0, tag: "D-0013 · fault 2", head: "A hand-picked exclusion threshold changed the answer",
       body: "Net reduction was computed outside the harness, dropping runs slower than 800s to exclude a mutant that hangs the suite. When the timeout moved from 900s to 600s, that same mutant fell on the other side of the threshold.",
       figure: "46% became 11%", fig2: "the tool had not changed at all",
-      fix: "net_reduction is computed inside the harness and excludes runs by exit code — a timeout measures a hang, not a suite. Recomputed, the published figure stands." },
+      fix: "net_reduction is computed inside the harness and excludes runs by exit code — a timeout measures a hang, not a suite. That was not yet enough: see below." },
   ];
   cards.forEach((c) => {
     s.addShape(pres.ShapeType.roundRect, { x: c.x, y: 1.8, w: 5.6, h: 4.5, rectRadius: 0.08, fill: { color: LIGHT }, line: { width: 0 } });
@@ -338,7 +338,10 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     s.addText(c.fig2, { x: c.x + 0.35, y: 4.95, w: 4.95, h: 0.3, fontFace: B, fontSize: 10, color: MUTED, isTextBox: true, margin: 0 });
     s.addText(c.fix, { x: c.x + 0.35, y: 5.3, w: 4.95, h: 0.9, fontFace: B, fontSize: 11, italic: true, color: GOOD, isTextBox: true, margin: 0 });
   });
-  note(s, "A project whose contribution is reproducible measurement has to be hardest on its own measurements. Both faults are written up in DECISIONS with what now prevents them.");
+  s.addText("A third, found re-measuring for 0.2.0: one mutant that hung the suite for 291 s set the published attrs saving at 58.4%. Measured per change, it is 42.7% (D-0020).", {
+    x: MARGIN, y: 6.45, w: 11.9, h: 0.6, fontFace: B, fontSize: 12, bold: true, color: ACCENT, isTextBox: true, margin: 0,
+  });
+  note(s, "A project whose contribution is reproducible measurement has to be hardest on its own measurements. All three faults are written up in DECISIONS with what now prevents them.");
 }
 
 // ---------------------------------------------------------------- 9. demo
@@ -405,7 +408,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     [
       { text: "Complete certainty is not attainable in a dynamically typed language, and we do not claim it. Code loaded by name at run time, getattr dispatch, monkeypatching, entry points and plugin registries are invisible to the import graph — there is a test in the suite that pins exactly that, so the report cannot quietly drift.", options: { color: "CFDAE3", breakLine: true, paraSpaceAfter: 12 } },
       { text: "The line-level map partly compensates, because it records what actually executed rather than what the source appears to say. Neither mechanism is complete.", options: { color: "CFDAE3", breakLine: true, paraSpaceAfter: 12 } },
-      { text: "What we claim instead is bounded, measured safety: 0 misses in 211 non-equivalent injected defects, on two real codebases, reproducible from the pinned corpus with one command.", options: { color: PAPER, bold: true } },
+      { text: "What we claim instead is bounded, measured safety: 0 misses in 213 non-equivalent injected defects, on two real codebases, reproducible from the pinned corpus with one command.", options: { color: PAPER, bold: true } },
     ],
     { x: MARGIN, y: 1.8, w: 7.1, h: 3.4, fontFace: B, fontSize: 13, lineSpacing: 20, isTextBox: true, margin: 0 }
   );
@@ -450,7 +453,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     ] },
     { x: 9.0, head: "Next", color: ACCENT, items: [
       "Fallback frequency over sampled historical commits",
-      "Sweep the closure limit against net reduction",
+      "Sweep the closure limit against time saved per change",
       "Third corpus repository (black, held in reserve)",
             "Incremental map updates, so a stale map need not mean the full suite",
     ] },
@@ -463,7 +466,7 @@ function table(s, x, y, w, headers, rows, colW, opts = {}) {
     );
   });
   s.addShape(pres.ShapeType.roundRect, { x: MARGIN, y: 5.8, w: 11.9, h: 0.95, rectRadius: 0.08, fill: { color: INK }, line: { width: 0 } });
-  s.addText("0 misses in 211 injected defects. 65.2% less test time on a 4,371-test suite. Four bugs found by our own evaluation — including one the import graph itself introduced.", {
+  s.addText("0 misses in 213 injected defects. 66.9% of test time saved per change on a 4,371-test suite. Four bugs found by our own evaluation — including one the import graph itself introduced.", {
     x: MARGIN + 0.35, y: 6.0, w: 11.2, h: 0.6, fontFace: H, fontSize: 15, bold: true, italic: true, color: PAPER, isTextBox: true, margin: 0,
   });
   note(s, "Close on the evaluation finding our own bugs. That is the argument for building the measuring apparatus before the tool.");

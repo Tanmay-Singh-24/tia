@@ -39,6 +39,15 @@ pinned by a test that failed on the old code.
   platform and installed package versions are recorded; a mismatch falls back
   with `ENVIRONMENT_CHANGED`, naming what differed. ([D-0019](docs/DECISIONS.md))
 
+### Corrected — a published figure
+
+- **The attrs time saving was overstated.** Published as 58.4%, it was set by
+  one mutant that hung the suite for 291 seconds and finished just under the
+  timeout, crediting tia with about 290 seconds of savings by itself. The time
+  metric is now the mean share of the suite saved per change, which no single
+  change can dominate. attrs: **42.7%**. scrapy, which had no such hangs:
+  **66.9%** (was 65.2%). Every miss count stands. ([D-0020](docs/DECISIONS.md))
+
 ### Added
 
 - **Import graph** (Phase 2): a changed line that ran at import time selects the
