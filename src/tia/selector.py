@@ -78,6 +78,41 @@ class Decision:
             return Reason.NO_CHANGES
         return self.verdicts[0].reason
 
+    @property
+    def forced_paths(self) -> list[str]:
+        """Test files and directories that run in full, whatever the map knows.
+
+        A test written in this very change has never been observed, so the map
+        cannot name it. Selecting a changed test file by the nodeids the map
+        already holds silently dropped every new test in it — the test most
+        likely to catch the change it was written for (D-0017). These paths
+        are run whole instead.
+        """
+        if self.full_suite:
+            return []
+        paths: set[str] = set()
+        for verdict in self.verdicts:
+            if verdict.reason is Reason.TEST_CHANGED and verdict.change.status != "D":
+                paths.add(verdict.change.path)
+            elif verdict.reason is Reason.CONFTEST_CHANGED:
+                paths.add(verdict.detail or ".")
+        return sorted(paths)
+
+    def covers(self, path: str) -> bool:
+        """Is this repo-relative file inside a forced path?"""
+        for forced in self.forced_paths:
+            if forced == ".":
+                return True
+            if path == forced or path.startswith(forced.rstrip("/") + "/"):
+                return True
+        return False
+
+    def pytest_args(self) -> list[str]:
+        """What to hand pytest: forced paths whole, plus every other nodeid."""
+        forced = self.forced_paths
+        rest = [n for n in sorted(self.selected) if not self.covers(n.split("::")[0])]
+        return [*forced, *rest]
+
     def counts_by_reason(self) -> dict[str, int]:
         counts: dict[str, int] = {}
         for verdict in self.verdicts:
@@ -101,6 +136,8 @@ class Decision:
             "head": self.head,
             "map_commit": self.map_commit,
             "selected": sorted(self.selected),
+            "forced_paths": self.forced_paths,
+            "pytest_args": self.pytest_args(),
             "changes": [
                 {
                     "path": v.change.path,
@@ -322,6 +359,19 @@ def _apply(
                 source_path=change.lookup_path,
                 lines=sorted(change.old_lines)[:10],
             )
+        )
+    if not found and reason not in (Reason.TEST_CHANGED, Reason.CONFTEST_CHANGED):
+        # Every selective rule must reach at least one recorded test. An empty
+        # answer means the map knows nothing about this change — a package
+        # whose files were never measured, a closure of unmeasured modules —
+        # and that is ignorance, not proof that nothing needs to run. Changed
+        # test files and conftest directories are exempt: they run whole
+        # through forced_paths whatever the map holds.
+        return replace(
+            verdict,
+            reason=Reason.UNMAPPED_FILE,
+            scope="all",
+            detail="no recorded test reaches this change",
         )
     selected |= found
     return verdict if reason is verdict.reason else replace(verdict, reason=reason)

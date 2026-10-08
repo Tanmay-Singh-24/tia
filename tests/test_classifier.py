@@ -173,7 +173,11 @@ def test_dependency_file_beats_the_asset_rule() -> None:
     [
         ("tests/test_a.py", True),
         ("tests/a_test.py", True),
-        ("test/helpers.py", True),
+        # A support module is not a test module. Counting it as one ran the tests
+        # defined in it (none) instead of the tests that use it (D-0017).
+        ("test/helpers.py", False),
+        ("tests/helpers.py", False),
+        ("tests/conftest_utils.py", False),
         ("src/app/testing_utils.py", False),
         ("src/app/core.py", False),
         ("tests/data/fixture.json", False),

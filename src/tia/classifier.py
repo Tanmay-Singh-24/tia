@@ -70,19 +70,20 @@ class Verdict:
 
 
 def is_test_path(path: str) -> bool:
-    """Does this path hold tests?
+    """Is this a test module — a file pytest collects tests from?
 
-    Deliberately generous. Misjudging a test file as source would consult the
-    map for a test that may never have been observed; misjudging source as a
-    test only costs us some speed.
+    By name only: `test_*.py` or `*_test.py`, pytest's own defaults. This used
+    to count every .py under a tests/ directory, on the reasoning that
+    misjudging source as a test "only costs speed". It does not: a changed test
+    file runs the tests *defined in it*, so a helper such as tests/helpers.py
+    ran none of the tests that *use* it, and they were silently dropped
+    (D-0017). A support module now goes through the ordinary rules — unmapped,
+    so the whole suite runs, unless the project measures its tests' coverage.
     """
     posix = PurePosixPath(path)
     if posix.suffix != ".py":
         return False
-    name = posix.name
-    if name.startswith("test_") or name.endswith("_test.py"):
-        return True
-    return any(part in {"tests", "test", "testing"} for part in posix.parts[:-1])
+    return posix.name.startswith("test_") or posix.name.endswith("_test.py")
 
 
 def is_dependency_path(path: str) -> bool:

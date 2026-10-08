@@ -230,9 +230,15 @@ def select_cmd(
             _print_explanations(decision)
         raise typer.Exit(code=EXIT_OK)
 
-    for nodeid in sorted(decision.selected):
-        typer.echo(nodeid)
-    _echo_err(f"tia: selected {len(decision.selected)} of {decision.total_tests} tests")
+    # One pytest argument per line: forced test files and conftest directories
+    # whole (so tests written in this change still run), then every other
+    # selected nodeid. `pytest $(tia select)` therefore runs the right set.
+    for argument in decision.pytest_args():
+        typer.echo(argument)
+    summary = f"tia: selected {len(decision.selected)} of {decision.total_tests} tests"
+    if decision.forced_paths:
+        summary += f", plus {len(decision.forced_paths)} changed test path(s) run whole"
+    _echo_err(summary)
     if explain:
         _print_explanations(decision)
 
@@ -259,7 +265,7 @@ def run(
             "yellow",
         )
         command = [sys.executable, "-m", "pytest", *extra]
-    elif not decision.selected:
+    elif not decision.pytest_args():
         _echo_err("tia: no tests affected by this change", "green")
         raise typer.Exit(code=EXIT_OK)
     else:
@@ -268,7 +274,7 @@ def run(
             f"tests (map @ {diff.short(decision.map_commit)})",
             "green",
         )
-        command = [sys.executable, "-m", "pytest", *extra, *sorted(decision.selected)]
+        command = [sys.executable, "-m", "pytest", *extra, *decision.pytest_args()]
 
     proc = subprocess.run(command, cwd=root, check=False)  # noqa: S603
     raise typer.Exit(code=proc.returncode)

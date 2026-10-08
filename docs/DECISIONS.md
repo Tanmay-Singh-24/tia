@@ -923,3 +923,51 @@ the fixed code match on outcome, selection size and reason code, 12/12, with no
 
 **How we would know this was wrong.** A miss on a map that passed this check —
 which would mean some other input, not the commit, changes the map's meaning.
+
+---
+
+## D-0017 — Changed test files run whole, and an empty answer is never a selection
+
+**Date:** 2026-10-08 · **Area:** classifier/selector/plugin · **Status:** accepted
+
+**Context.** Auditing for further silent misses after D-0016 turned up two more,
+both in actions developers take every day. Neither was reachable by the safety
+experiment, which only ever mutates covered *source* lines — so neither could
+appear in any published result.
+
+*A new test never ran.* A changed test file selected the tests the map already
+knew by nodeid. A test written in this very change has never been observed, so
+it was not among them, and the plugin deselected it. A pull request that adds a
+failing test passed: `selected 3 of 4 tests ... 3 passed, 1 deselected`. The new
+test is the one most likely to catch the change it was written for.
+
+*A test helper reached nothing.* Every `.py` under a `tests/` directory counted
+as a test file, on the reasoning — written into its docstring — that misjudging
+source as a test "only costs speed". It does not: a changed test file selects
+the tests *defined in* it, and a helper such as `tests/helpers.py` defines none.
+The tests that *use* it were dropped, and alongside any other change, silently.
+
+**Decision.**
+1. A test module is recognised by name only — `test_*.py` or `*_test.py`,
+   pytest's defaults. A support module goes through the ordinary rules: unmapped
+   (the usual case, since projects measure coverage of their package rather than
+   their tests), so the whole suite runs.
+2. Changed test files and changed `conftest.py` directories become **forced
+   paths**, run whole whatever the map knows. The plugin keeps any collected
+   test inside one; `tia run` and `tia select` hand pytest the paths themselves
+   plus the remaining nodeids, so `pytest $(tia select)` runs the right set.
+3. Any selective rule that resolves to no recorded test falls back with
+   `UNMAPPED_FILE`. This generalises the `LINE_NOT_IN_MAP` fix: an empty answer
+   is ignorance, never "nothing needs to run".
+
+**Evidence.** Two regression tests, each confirmed to fail on the old code with
+the exact silent outcome described above. `test_is_test_path` asserted the old
+behaviour for `test/helpers.py`; its expectation now says otherwise and why. No
+published mutant had an empty selection, so (3) cannot change any published
+figure; mutants never touch test files, so (1) and (2) cannot either.
+
+**How we would know this was wrong.** A test module pytest collects under a
+non-default name (a custom `python_files`) is now treated as source. That is the
+safe direction — unmapped, so everything runs — but if a project reports tia
+running its whole suite for every test edit, this is why, and reading
+`python_files` from the pytest configuration is the fix.

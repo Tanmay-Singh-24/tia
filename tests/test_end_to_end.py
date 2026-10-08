@@ -485,3 +485,77 @@ def test_build_allows_uncommitted_non_python(mini_project: Path) -> None:
     """`tia init` edits .gitignore; that moves no line numbers and must not block."""
     (mini_project / ".gitignore").write_text(".tia/\n")
     build_map(mini_project)
+
+
+# --- test-file handling (D-0017) ------------------------------------------
+
+
+HELPER = "def make():\n    return 1\n"
+
+TEST_ADD_WITH_HELPER = """\
+from helpers import make
+from mini import add
+
+
+def test_add():
+    assert add(make(), 2) == 3
+"""
+
+
+def test_changing_a_test_helper_reaches_the_tests_that_use_it(
+    mini_project: Path,
+) -> None:
+    """A support module under tests/ is not a test module.
+
+    Treating every .py under tests/ as a test file meant changing a helper
+    selected the tests *defined in* it — none — instead of the tests that *use*
+    it. Alongside any other change, those tests were silently dropped.
+    """
+    tests = mini_project / "tests"
+    (tests / "helpers.py").write_text(HELPER)
+    (tests / "test_add.py").write_text(TEST_ADD_WITH_HELPER)
+    _git(mini_project, "add", "-A")
+    _git(mini_project, "commit", "-m", "add a test helper")
+    build_map(mini_project)
+    base = _git(mini_project, "rev-parse", "HEAD")
+
+    (tests / "helpers.py").write_text("def make():\n    return 2\n")  # breaks test_add
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a - b", "return a - b  # x"))
+    # Stage only what the change is. `add -A` would also commit the build's
+    # .coverage and .tia/ artefacts, which force a full-suite fallback and let
+    # this test pass without testing anything.
+    _git(mini_project, "add", "tests/helpers.py", "mini.py")
+    _git(mini_project, "commit", "-m", "change a helper and a source line")
+
+    decision = select(
+        mini_project, Config(packages=["mini"], upstream="main"), base=base
+    )
+    assert decision.full_suite or "tests/test_add.py::test_add" in decision.selected, (
+        f"test_add uses the changed helper but only {sorted(decision.selected)} "
+        "were selected"
+    )
+
+
+def test_a_new_test_in_a_changed_test_file_actually_runs(mini_project: Path) -> None:
+    """The map cannot know a test written in this very change.
+
+    The plugin kept only tests the map knew by nodeid, so a new test — the most
+    likely test to catch the change it was written for — was deselected.
+    """
+    build_map(mini_project)
+    base = _git(mini_project, "rev-parse", "HEAD")
+
+    test_add = mini_project / "tests" / "test_add.py"
+    test_add.write_text(
+        test_add.read_text() + "\n\ndef test_brand_new():\n    assert False\n"
+    )
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a - b", "return a - b  # x"))
+    _git(mini_project, "add", "tests/test_add.py", "mini.py")  # not the artefacts
+    _git(mini_project, "commit", "-m", "a new failing test and a source change")
+
+    result = run_pytest(mini_project, "--tia", f"--tia-base={base}")
+    assert "test_brand_new" in result.stdout and result.returncode != 0, (
+        "the new test was not run:\n" + result.stdout
+    )

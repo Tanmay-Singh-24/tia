@@ -77,8 +77,21 @@ def pytest_collection_modifyitems(
         return
 
     selected = decision.selected
-    keep = [item for item in items if item.nodeid in selected]
-    removed = [item for item in items if item.nodeid not in selected]
+
+    def wanted(item: pytest.Item) -> bool:
+        # Known to the map by nodeid, or inside a changed test file / conftest
+        # directory — where a test written in this change, which the map has
+        # never seen, still has to run.
+        if item.nodeid in selected:
+            return True
+        try:
+            relative = Path(str(item.path)).resolve().relative_to(root.resolve())
+        except ValueError:
+            return False
+        return decision.covers(relative.as_posix())
+
+    keep = [item for item in items if wanted(item)]
+    removed = [item for item in items if not wanted(item)]
 
     if not keep:
         _banner(
