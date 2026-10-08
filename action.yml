@@ -27,16 +27,24 @@ inputs:
 runs:
   using: composite
   steps:
-    # A pinned version wins. Otherwise keep a tia the project already installed
-    # (e.g. pinned in its own dev dependencies) and only fetch one if missing.
+    # Which tia, in order: an explicit tia-version; a tia the project already
+    # installed (e.g. pinned in its own dev dependencies); the release matching
+    # this action's tag, so `uses: ...@v0.2.0` always means tia 0.2.0; latest.
     - name: Install tia
       shell: bash
       run: |
+        ref="${{ github.action_ref }}"
+        spec=""
         if [ -n "${{ inputs.tia-version }}" ]; then
-          python -m pip install "tia-select==${{ inputs.tia-version }}"
-        elif ! python -c "import tia" 2>/dev/null; then
-          python -m pip install tia-select
+          spec="tia-select==${{ inputs.tia-version }}"
+        elif python -c "import tia" 2>/dev/null; then
+          spec=""
+        elif [[ "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          spec="tia-select==${ref#v}"
+        else
+          spec="tia-select"
         fi
+        if [ -n "$spec" ]; then python -m pip install "$spec"; fi
         python -m tia.cli --version
 
     # A map is valid for one commit in one environment (D-0016, D-0019). The

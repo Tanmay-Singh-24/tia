@@ -51,18 +51,34 @@ pip install tia-select
 ```
 
 ```bash
-tia init     # create .tia.toml
+tia init     # create .tia.toml, then commit it
 tia build    # watch the suite once, build the map
 tia run      # from now on, run only what matters
 ```
 
-In CI, use the pytest plugin directly:
+A map is valid for the exact commit and environment it was built in, so rebuild
+it when your main branch moves; `tia status` tells you when it is stale, and
+tia runs the whole suite rather than trust a stale one.
 
-```bash
-pytest --tia --tia-base=origin/main
+### In CI
+
+Build the map once per commit on main, and let each pull request restore the
+map for the commit it branches from:
+
+```yaml
+- uses: Tanmay-Singh-24/tia@v0.2.0
+  with:
+    mode: build        # on pushes to main
 ```
 
-That's it. Python 3.11+, works with any pytest suite.
+```yaml
+- uses: Tanmay-Singh-24/tia@v0.2.0
+  with:
+    mode: test         # on pull requests; needs fetch-depth: 0
+```
+
+**[docs/CI.md](docs/CI.md)** has the complete workflow and the three things that
+must line up. Python 3.11+, any pytest suite, tested on Linux, macOS and Windows.
 
 ## Does it actually work?
 
@@ -94,8 +110,24 @@ in full:
   we added an import graph; the graph then re-opened the same hole. Found only
   when the sample went from 50 injected defects to 200.
 
-That's why there's a fallback rate in the table above, and why ten of the
-eighteen possible outcomes deliberately give up the speed benefit. A tool that is
+**And before calling it shippable, we went looking for more.** The published
+experiment always built the map at exactly the commit it compared against, so
+it could not see how tia behaves in real use. Auditing for that turned up ten
+further ways it could silently skip a test that mattered — none of them
+reachable by the experiment, all fixed in 0.2.0 with a test that failed on the
+old code:
+
+- a map built before `main` moved, looked up with shifted line numbers
+  ([D-0016](docs/DECISIONS.md)) — reproduced as a real miss;
+- a new test added in a pull request, never run ([D-0017](docs/DECISIONS.md));
+- a changed test helper, whose users were dropped ([D-0017](docs/DECISIONS.md));
+- new parametrisations, new doctests, and untracked test files
+  ([D-0018](docs/DECISIONS.md));
+- a map built under a different Python, platform or package version
+  ([D-0019](docs/DECISIONS.md)).
+
+That's why there's a fallback rate in the table above, and why eleven of the
+nineteen possible outcomes deliberately give up the speed benefit. A tool that is
 fast but occasionally lets a bug through is worse than no tool, because it
 manufactures confidence.
 

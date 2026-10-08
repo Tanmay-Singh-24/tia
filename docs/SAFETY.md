@@ -33,35 +33,60 @@ selection matches no collected test, the plugin runs the whole suite rather
 than nothing — "0 tests passed" must never be the output of a tool whose job is
 deciding what to skip.
 
-**4. Changed tests always run.**
-A new or edited test has never been observed by the map, so the map is not
-consulted about it.
+**4. Tests the map has never seen still run.**
+A test written in this change has never been observed, so the map is never
+asked about it. A changed test file runs whole, including tests added to it; a
+changed `conftest.py` runs everything at or below its directory; a new
+parametrisation of a selected test runs, because selection is by test function;
+a new doctest in a changed file runs; and a test file not yet `git add`-ed is
+part of the change.
+
+**5. The map is used only where it is valid.**
+A map describes one commit in one environment. It is used only when it was
+built at *exactly* the commit this change branches from — not merely an earlier
+one, because once `main` moves the same line number can name different code —
+and under the same Python version, platform and installed package versions.
+Otherwise it is refused, and the reason names what differed. `tia build`
+refuses to build from uncommitted Python edits, which would stamp HEAD's commit
+on someone else's line numbers.
+
+**6. An empty answer is never a selection.**
+Any rule that resolves to no recorded test — a line the map holds nothing for,
+a package whose files were never measured — widens or falls back. "No test
+reaches this" is ignorance, not proof that nothing needs to run.
 
 ## The classifier — the guarantee in full
 
-Every changed path is routed to exactly one outcome.
+The map must first pass two checks: built at exactly this change's branch point
+(`MAP_STALE` otherwise), and in this environment (`ENVIRONMENT_CHANGED`
+otherwise). Then every changed path is routed to exactly one outcome.
 
 | Changed path | Outcome | Reason code |
 |---|---|---|
-| Test file, new or modified | Run those tests, without consulting the map | `TEST_CHANGED` |
-| `conftest.py` | Run every test at or below that directory | `CONFTEST_CHANGED` |
-| Project Python source, in the map, map fresh | Line-level selection | `SELECTED` |
-| Project Python source, absent from the map | Full suite | `UNMAPPED_FILE` |
-| `__init__.py` | File-level over the package, never line-level | `PACKAGE_INIT` |
-| Lines inserted (no old-side coordinates) | File-level for that file | `INSERTION_NO_HISTORY` |
-| Changed line only ever ran at import time | Full suite | `IMPORT_TIME_LINE` |
-| `pyproject.toml`, `setup.cfg`, `setup.py`, `tox.ini`, `pytest.ini`, `.coveragerc` | Full suite | `BUILD_CONFIG_CHANGED` |
-| `requirements*.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` | Full suite | `DEPENDENCY_CHANGED` |
-| Anything that is not a `.py` file | Full suite | `NON_SOURCE_ASSET` |
 | Matches an `always_full` glob | Full suite | `USER_CONFIGURED` |
-| Map commit is not an ancestor of the diff base | Full suite | `MAP_STALE` |
+| `conftest.py` | Everything at or below that directory, including unseen tests | `CONFTEST_CHANGED` |
+| Test module (`test_*.py`, `*_test.py`), new or modified | That whole file, including unseen tests | `TEST_CHANGED` |
+| `requirements*.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` | Full suite | `DEPENDENCY_CHANGED` |
+| `pyproject.toml`, `setup.cfg`, `setup.py`, `tox.ini`, `pytest.ini`, `.coveragerc` | Full suite | `BUILD_CONFIG_CHANGED` |
+| Anything that is not a `.py` file | Full suite | `NON_SOURCE_ASSET` |
+| `__init__.py` | File-level over the package | `PACKAGE_INIT` |
+| Python file absent from the map, or deleted | Full suite | `UNMAPPED_FILE` |
+| Lines inserted (no old-side coordinates) | File-level for that file | `INSERTION_NO_HISTORY` |
+| Changed line also ran at import time | Tests of every file that imports it | `IMPORT_CLOSURE` |
+| ...and that set exceeds 60% of the suite | Full suite | `CLOSURE_TOO_LARGE` |
+| ...and the map has no import graph | Full suite | `IMPORT_TIME_LINE` |
+| Changed line the map holds nothing for | File-level for that file | `LINE_NOT_IN_MAP` |
+| Project source in the map | Line-level selection | `SELECTED` |
+| Any of the above that reaches no recorded test | Full suite | `UNMAPPED_FILE` |
+| Map built at a different commit | Full suite | `MAP_STALE` |
+| Map built in a different environment | Full suite | `ENVIRONMENT_CHANGED` |
 | No map exists | Full suite | `NO_MAP` |
 | Classifier raised | Full suite | `CLASSIFIER_ERROR` |
 
-Nine of these fourteen rows deliberately give up the speed benefit. That is the
-design, not a shortfall in it. How often each fires is measured and published
-as **fallback frequency**, because the honest cost of a conservative tool is
-part of its description.
+Eleven of the nineteen outcomes deliberately give up the speed benefit. That is
+the design, not a shortfall in it. How often each fires is measured and
+published as **fallback frequency**, because the honest cost of a conservative
+tool is part of its description.
 
 Note one deliberate deviation from the specification: SPEC B.6 enumerates asset
 suffixes (`.json`, `.yaml`, `.sql`, `.html`, `.csv`). tia is stricter and
@@ -84,7 +109,8 @@ Specifically, tia can miss a defect when:
   in practice — but only for the paths that executed during the learning run.
 
 - **A test's behaviour depends on state outside the repository.** Environment
-  variables, clock, network, database contents, installed package versions.
+  variables, clock, network, database contents. (Python version, platform and
+  installed package versions *are* checked — see guarantee 5.)
 
 - **A test was skipped during the learning run.** A skipped test executes no
   lines, so it contributes nothing to the map and cannot be selected by line.
@@ -93,10 +119,19 @@ Specifically, tia can miss a defect when:
 - **Coverage did not observe the relationship.** Code executed in a subprocess
   the coverage run did not instrument, or in a C extension, is invisible.
 
-- **The map is out of date in a way `MAP_STALE` does not catch.** The staleness
-  check is an ancestry test on commits. It does not detect a map built from a
-  suite that was already failing, or one built with different environment
-  variables than the selection run uses.
+- **The map was built from a suite in a state the change does not share.**
+  The map is pinned to a commit and an environment, but not to environment
+  variables, the clock, or a suite that was already failing when it was built.
+
+- **A test module has a non-default name.** Only `test_*.py` and `*_test.py`
+  are recognised as test modules. A project that collects tests from other
+  names (a custom `python_files`) has them treated as source — which falls
+  back to the full suite rather than missing anything, at the cost of speed.
+
+- **An untracked file other than a test module or `conftest.py` matters.**
+  Locally, untracked test files are part of the change; other untracked files
+  are not, because counting every stray file would make tia run everything. A
+  test that discovers files by globbing a directory can be affected by one.
 
 - **Test ordering or inter-test state matters.** tia selects a subset, which
   changes execution order. A suite with order-dependent tests can behave

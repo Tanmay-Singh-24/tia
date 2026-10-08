@@ -74,7 +74,7 @@ echo "some-package==1.0" > requirements-demo.txt
 git add -N requirements-demo.txt
 tia select 2>&1 | tail -3
 echo
-echo "  Ten of the eighteen possible outcomes give up the speed benefit on"
+echo "  Eleven of the nineteen possible outcomes give up the speed benefit on"
 echo "  purpose. How often that fires is the fallback frequency we publish."
 pause
 

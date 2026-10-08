@@ -1,0 +1,80 @@
+# Publish a release when a version tag is pushed:  git tag v0.2.0 && git push origin v0.2.0
+#
+# Uses PyPI Trusted Publishing, so no API token is stored anywhere. One-time
+# setup on pypi.org: project tia-select -> Publishing -> add a GitHub trusted
+# publisher with owner Tanmay-Singh-24, repository tia, workflow release.yml,
+# environment pypi.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # A tag that disagrees with the code would publish the wrong version.
+      - name: Tag must match the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          code=$(python -c "import re,pathlib; print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('src/tia/__init__.py').read_text()).group(1))")
+          echo "tag $tag, code $code"
+          test "$tag" = "$code"
+
+      - run: pip install -e ".[dev,eval]" build
+      - run: |
+          git config --global user.name "tia release"
+          git config --global user.email "release@tia.invalid"
+      - run: pytest -q
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # The release notes are this version's section of CHANGELOG.md.
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## " v { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --title "tia $GITHUB_REF_NAME" --notes-file notes.md
