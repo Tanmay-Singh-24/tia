@@ -247,3 +247,41 @@ def test_resume_refuses_the_other_arm() -> None:
     mutations = _mutations()
     with pytest.raises(SystemExit, match="other arm"):
         resumable(_prior(mutations[:2], graph=False), mutations, True, "x.json")
+
+
+# --- the headline time metric (D-0020) -------------------------------------
+
+from metrics import time_saved_per_change  # noqa: E402
+
+
+def _m(full: float, selected: float | None, *, exit_code: int = 1) -> dict:
+    fell_back = selected is None
+    return {
+        "outcome": OUTCOME_CAUGHT,
+        "full_suite_s": full,
+        "full_suite_exit": exit_code,
+        "selected_s": full if fell_back else selected,
+        "selected_exit": exit_code,
+        "full_suite_selected": fell_back,
+    }
+
+
+def test_a_fallback_saves_nothing_and_a_selection_saves_its_fraction() -> None:
+    assert time_saved_per_change([_m(4.0, None), _m(4.0, 1.0)]) == 0.375
+
+
+def test_one_hung_mutant_cannot_dominate() -> None:
+    """The case that broke the summed metric: one 291 s hang among normal
+    4 s changes. Summed, it moved the attrs figure by twenty points; here it
+    counts exactly as much as any other change."""
+    normal = [_m(4.0, 2.0) for _ in range(10)]  # each saves 50%
+    with_hang = normal + [_m(291.0, 0.3)]  # saves ~100%
+    assert abs(time_saved_per_change(with_hang) - (10 * 0.5 + 1.0) / 11) < 0.01
+
+
+def test_timed_out_runs_are_left_out() -> None:
+    assert time_saved_per_change([_m(4.0, 2.0), _m(300.0, None, exit_code=-1)]) == 0.5
+
+
+def test_no_measurable_change_gives_none() -> None:
+    assert time_saved_per_change([]) is None

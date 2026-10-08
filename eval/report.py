@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from metrics import time_saved_per_change
+
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "eval" / "results"
 MANIFEST = ROOT / "eval" / "published.json"
@@ -37,13 +39,14 @@ def newest_replay(repo: str, arm: str) -> dict[str, Any] | None:
 
 def figures(payload: dict[str, Any]) -> dict[str, Any]:
     summary = payload["summary"]
-    net = summary.get("net_reduction", {})
     precision = summary.get("precision", {})
     return {
         "mutants": summary["non_equivalent"],
         "misses": summary["misses"],
         "fallback": summary["fallback_frequency"],
-        "net": net.get("total_time_reduction"),
+        # Computed from the per-mutant records, so files written before the
+        # metric existed are judged by the same definition as new ones.
+        "net": time_saved_per_change(payload["mutants"]),
         "precision": precision.get("median"),
     }
 
@@ -53,7 +56,7 @@ def pct(value: float | None) -> str:
 
 
 def published_table(manifest: dict[str, Any]) -> None:
-    print("| | misses | fallback | net reduction | precision |")
+    print("| | misses | fallback | time saved per change | precision |")
     print("|---|---|---|---|---|")
     for repo, entry in manifest.items():
         if repo.startswith("_"):

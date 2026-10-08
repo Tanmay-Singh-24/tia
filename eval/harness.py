@@ -44,6 +44,7 @@ from corpus import (  # noqa: E402
     run,
     venv_env,
 )
+from metrics import time_saved_per_change  # noqa: E402
 from mutate import Mutation, find_mutations, restore, write_mutant  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "src"))
@@ -508,6 +509,12 @@ def summarise(results: list[MutantResult]) -> dict[str, Any]:
         # mutants whose suite takes four seconds. (An earlier analysis excluded
         # them with a hand-picked duration threshold, which silently changed
         # the answer when the timeout setting changed.)
+        # Headline time metric (D-0020): mean fraction saved per change, so no
+        # single hung mutant can dominate. The summed-seconds figure is kept
+        # under net_reduction for comparison with earlier results.
+        "time_saved_per_change": time_saved_per_change(
+            [r.as_dict() for r in non_equivalent]
+        ),
         "net_reduction": _net_reduction(non_equivalent),
         "precision": _precision(non_equivalent),
         "wall_clock_s": {
@@ -672,7 +679,7 @@ def safety(
         # experiments and joining them would be a fabrication.
         prior = json.loads(resume.read_text())
         results = resumable(prior, mutations, use_import_graph, resume.name)
-        out = resume
+        out = resume.resolve()  # a relative path broke the final "wrote" line
         print(
             f"[{spec.name}] resuming {resume.name} at {len(results)}/{len(mutations)}"
         )
@@ -774,6 +781,9 @@ def report(payload: dict[str, Any]) -> None:
     clock = s["wall_clock_s"]
     print(f"  full suite median        {clock['full_suite_median']} s")
     print(f"  selected median          {clock['selected_median']} s")
+    per_change = s.get("time_saved_per_change")
+    if per_change is not None:
+        print(f"\n  time saved per change    {per_change:.1%}  (mean; D-0020)")
     net = s["net_reduction"]
     if net.get("n"):
         print(

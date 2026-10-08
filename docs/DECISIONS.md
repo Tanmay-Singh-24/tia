@@ -1077,3 +1077,66 @@ tests), with no spurious `ENVIRONMENT_CHANGED` (`safety_attrs_2026-10-08T100410Z
 run with `ENVIRONMENT_CHANGED` naming a package nobody changed — a dependency
 that floats between jobs. The fix is a lockfile, and the detail line says which
 package to pin.
+
+---
+
+## D-0020 — A published figure was wrong: one hung mutant set the attrs saving
+
+**Date:** 2026-10-08 · **Area:** eval/methodology · **Status:** accepted
+
+**Context.** Re-measuring the attrs import-graph arm for 0.2.0 — the same 200
+recorded mutations, replayed — gave a net time reduction of **37.0%** against the
+published **58.4%**, with the miss count and fallback rate essentially
+unchanged. Per-mutant medians did not move (full suite 3.79 s → 3.95 s,
+selected run 0.27 s → 0.28 s), so neither the shipped selection behaviour nor
+general timing noise explained it.
+
+**Cause.** Net reduction summed seconds across mutants, and a handful of
+mutants hang the suite: 14.6, 14.9, 15.4, 28.3, 114.9 and 291.5 seconds against
+a normal 4. The two worst flip in and out of the sum depending on whether they
+finish just under the 300 s timeout:
+
+- mutant #110 finished at **291.5 s** in the published run — counted, and because
+  tia selected a handful of fast tests for it, credited with ~290 s of savings
+  on its own. In the replay it reached 300 s, timed out, and was excluded;
+- mutant #136 timed out in the published run and finished at 229.5 s in the
+  replay, as a fallback.
+
+One 291-second mutant outweighs some seventy ordinary ones. D-0013 fixed this
+problem for mutants that *time out*; it did not cover mutants that hang and then
+finish, and that is where the published number came from.
+
+**Options considered.**
+1. *Exclude mutants slower than k × the median.* Stable for k between 3 and 10
+   (51.6–53.6%), but it drops to ~46% at k = 20 once the 115 s hang is admitted —
+   a hand-picked threshold steering the answer, exactly what D-0013 warned
+   against.
+2. *A much shorter timeout.* Moves the arbitrary line rather than removing it.
+3. *Average the fraction saved per change.* Each change contributes a number in
+   [0, 1]; a fallback contributes 0. No change can dominate, there is no
+   threshold, and it answers the question a user asks: on a typical change,
+   what share of the suite's time does tia save?
+
+**Decision.** Option 3 becomes the headline time metric,
+`time_saved_per_change`, defined once in `eval/metrics.py` and used by both the
+harness and `report.py`. `report.py` computes it from each mutant's own record,
+so results written before the metric existed are judged by the same definition.
+Summed-seconds is still recorded under `net_reduction`, for comparison only.
+
+**Corrected figures (time saved per change, published runs):**
+
+| | no import graph | import graph |
+|---|---|---|
+| attrs | 42.1% *(was 57.0%)* | **43.0%** *(was 58.4%)* |
+| scrapy | 42.3% *(was 40.4%)* | **66.1%** *(was 65.2%)* |
+
+The published and replayed attrs graph arms now agree — 43.0% and 42.7% —
+where the summed metric gave 58.3% and 37.0%. scrapy, which had no hangs, is
+essentially unchanged. Every miss count stands. Both attrs figures were
+overstated by roughly 15 points; the correction belongs in every place they
+were quoted.
+
+**How we would know this was wrong.** Two replays of the same arm disagreeing on
+this metric by more than a couple of points — which would mean some other
+outlier mechanism is at work. The comparison is cheap, and `report.py --compare`
+shows it.
