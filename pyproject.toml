@@ -13,12 +13,17 @@ license-files = ["LICENSE"]
 authors = [{ name = "Tanmay Singh" }]
 keywords = ["testing", "pytest", "test-impact-analysis", "ci", "coverage"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
     "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
 ]
 
 # SPEC B.1: runtime dependencies are exactly these four. Nothing else without
@@ -36,6 +41,8 @@ eval = ["pytest-xdist>=3.5", "pyyaml>=6.0"]
 
 [project.urls]
 Repository = "https://github.com/Tanmay-Singh-24/tia"
+Changelog = "https://github.com/Tanmay-Singh-24/tia/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/Tanmay-Singh-24/tia/blob/main/docs/CI.md"
 
 [project.scripts]
 tia = "tia.cli:main"
