@@ -17,7 +17,7 @@ import pytest
 
 from tia import db
 from tia.config import Config
-from tia.mapper import build
+from tia.mapper import DirtyTreeError, build
 from tia.reasons import Reason
 from tia.selector import select
 
@@ -404,3 +404,84 @@ def test_import_closure_reaches_tests_defined_in_a_closure_file(
     assert any("test_importtime" in nodeid for nodeid in decision.selected), (
         "the import-time dependent test must be selected, not silently dropped"
     )
+
+
+# --- map drift (D-0016) ---------------------------------------------------
+# The map speaks the line numbers of the commit it was built at. These pin the
+# two ways those numbers can stop describing the code being selected for.
+
+
+def test_map_built_before_main_moved_falls_back(mini_project: Path) -> None:
+    """The shippability blocker, reproduced.
+
+    Map built at X. Main gains four lines at the top of mini.py (X2), which
+    moves add()'s body onto the line where subtract()'s body used to be. A
+    branch from X2 then breaks add(). The old check only asked whether X is an
+    ancestor of X2 — it is — so it looked the changed line up in X's map, found
+    test_subtract, and missed the defect while reporting SELECTED.
+    """
+    build_map(mini_project)
+    source = mini_project / "mini.py"
+    source.write_text("# a\n# b\n# c\n# d\n" + source.read_text())
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "main moves on")
+    base = _git(mini_project, "rev-parse", "HEAD")
+
+    _git(mini_project, "checkout", "-q", "-b", "feature")
+    source.write_text(source.read_text().replace("return a + b", "return a + b + 1"))
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "break add")
+
+    decision = select(
+        mini_project, Config(packages=["mini"], upstream="main"), base=base
+    )
+    assert decision.full_suite, (
+        f"selected {sorted(decision.selected)} from a map whose line numbers "
+        "no longer describe this code"
+    )
+    assert decision.primary_reason is Reason.MAP_STALE
+
+
+def test_explicit_base_resolves_to_the_branch_point(mini_project: Path) -> None:
+    """`--base main` means "this branch's changes", not "diff against main's tip".
+
+    The pytest plugin passes --tia-base=origin/main by default. Diffing against
+    the tip drags in every upstream commit the branch does not have, so the
+    selection described the wrong change entirely.
+    """
+    build_map(mini_project)
+    _git(mini_project, "checkout", "-q", "-b", "feature")
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return a + b + 1"))
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "change add")
+
+    _git(mini_project, "checkout", "-q", "main")
+    (mini_project / "NOTES.txt").write_text("unrelated upstream work\n")
+    _git(mini_project, "add", "NOTES.txt")
+    _git(mini_project, "commit", "-m", "main moves on, unrelated")
+    _git(mini_project, "checkout", "-q", "feature")
+
+    decision = select(
+        mini_project, Config(packages=["mini"], upstream="main"), base="main"
+    )
+    assert not decision.full_suite, decision.fallback_reasons
+    assert decision.selected == {
+        "tests/test_add.py::test_add",
+        "tests/test_add.py::test_add_negative",
+    }
+
+
+def test_build_refuses_uncommitted_python(mini_project: Path) -> None:
+    """A map built from unsaved edits would be stamped with HEAD's commit while
+    describing different code — the same drift, created at build time."""
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return b + a"))
+    with pytest.raises(DirtyTreeError, match="mini.py"):
+        build_map(mini_project)
+
+
+def test_build_allows_uncommitted_non_python(mini_project: Path) -> None:
+    """`tia init` edits .gitignore; that moves no line numbers and must not block."""
+    (mini_project / ".gitignore").write_text(".tia/\n")
+    build_map(mini_project)

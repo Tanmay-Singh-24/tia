@@ -133,7 +133,13 @@ def build(
 
     typer.echo(f"tia: building the map with: {config.suite} (--cov-context=test)")
     try:
-        result = mapper.build(root, config, jobs=jobs, commit=diff.head_commit(root))
+        try:
+            result = mapper.build(
+                root, config, jobs=jobs, commit=diff.head_commit(root)
+            )
+        except mapper.DirtyTreeError as exc:
+            _echo_err(f"tia: {exc}", "red")
+            raise typer.Exit(code=EXIT_USAGE) from exc
     except (RuntimeError, diff.GitError) as exc:
         _echo_err(f"tia build: {exc}", "red")
         raise typer.Exit(code=EXIT_MAP_UNUSABLE) from exc

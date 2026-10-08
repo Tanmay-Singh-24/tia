@@ -868,3 +868,58 @@ can move by a mutant or two if a rebuilt map records slightly different coverage
 **How we would know this was wrong.** A full `make reproduce` on a different
 machine that reports a different miss count. That is the experiment that tests
 this decision, and it has not been run yet.
+
+---
+
+## D-0016 — The map is trusted only at the exact commit it was built at
+
+**Date:** 2026-10-08 · **Area:** selector/mapper · **Status:** accepted
+
+**Context.** Asked whether tia was shippable, we checked the condition every
+experiment had quietly satisfied: the map was always built at exactly the
+commit being compared against. Real CI does not work that way — the map is
+built on `main`, and `main` moves. The selector only checked that the map's
+commit was an *ancestor* of the branch point. If `main` had moved on in
+between, it diffed against the newer commit and looked those line numbers up in
+the older map, where the same number can name different code.
+
+Reproduced in a two-function repository: map built at X; three lines added to
+the top of `mod.py` on `main` (X2); a branch from X2 breaks `g()`, now on line
+5. Line 5 in X's map is inside `f()`. tia selected `test_f`, which passed, while
+the full suite failed `test_g` — **a silent miss, reported as `SELECTED`**.
+Pinned as `test_map_built_before_main_moved_falls_back`, which failed on the old
+code with exactly that selection.
+
+Two siblings of the same fault were fixed with it:
+- `tia build` did not check the working tree. A map built from unsaved edits is
+  stamped with HEAD's commit but carries the edited file's line numbers.
+- An explicit `--base` / `--tia-base` (the plugin defaults to `origin/main`) was
+  diffed against that ref's *tip*, while the default path used the branch
+  point. On a branch behind `main`, the diff described every upstream commit the
+  branch lacked.
+
+**Options considered.**
+1. *Translate line numbers through the intermediate diff.* Precise and the
+   largest cost in code that must be right; deferred until it is needed.
+2. *Fall back only for files that changed in between.* Not safe: a change
+   elsewhere on `main` can create a dependency the old map has never seen, and
+   tests added on `main` since the map was built are not in it at all.
+3. *Trust the map only at the exact branch point.*
+
+**Decision.** Option 3. `MAP_STALE` unless the map's commit *is* the branch
+point; every base, configured or explicit, resolves to the branch point; `tia
+build` refuses when Python files differ from HEAD (other files, such as the
+`.gitignore` that `tia init` edits, move no line numbers and do not block).
+
+**Cost.** In CI, the map must be rebuilt for each `main` commit a pull request
+can branch from — a per-commit build cached by commit hash, rather than a
+nightly one. That is the honest price, and it is what the CI guide documents.
+
+**Evidence that published results are unaffected.** Every published experiment
+built its map at the exact branch point, so the stricter check cannot change
+them. Confirmed by replay: the first 12 published attrs mutants re-run under
+the fixed code match on outcome, selection size and reason code, 12/12, with no
+`MAP_STALE` introduced (`..._2026-10-08T094101Z_..._replay_partial.json`).
+
+**How we would know this was wrong.** A miss on a map that passed this check —
+which would mean some other input, not the commit, changes the map's meaning.

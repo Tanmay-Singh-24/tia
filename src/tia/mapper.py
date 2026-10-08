@@ -25,9 +25,14 @@ from coverage import CoverageData
 
 from tia import db, importgraph
 from tia.config import Config
+from tia.diff import uncommitted_python
 
 # The context coverage.py uses for lines executed outside any test.
 IMPORT_TIME_CONTEXT = ""
+
+
+class DirtyTreeError(RuntimeError):
+    """Raised when Python files differ from HEAD at build time."""
 
 
 @dataclass
@@ -194,7 +199,21 @@ def build(
     coverage_file: Path | None = None,
     run: bool = True,
 ) -> BuildResult:
-    """Run the instrumented suite and write the map. This is `tia build`."""
+    """Run the instrumented suite and write the map. This is `tia build`.
+
+    Refuses when Python files differ from HEAD. The map is stamped with HEAD's
+    commit, and the selector trusts it only for that exact commit; a map built
+    from unsaved edits would carry HEAD's name and someone else's line numbers.
+    """
+    dirty = uncommitted_python(repo_root)
+    if dirty:
+        shown = ", ".join(dirty[:5]) + (
+            f" and {len(dirty) - 5} more" if len(dirty) > 5 else ""
+        )
+        raise DirtyTreeError(
+            f"uncommitted Python changes: {shown}. Commit or stash them first — "
+            "a map is only valid for the exact commit it was built at."
+        )
     build_started = time.perf_counter()
     result = BuildResult()
     command = shlex.join(coverage_command(config, jobs))

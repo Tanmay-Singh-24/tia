@@ -126,8 +126,9 @@ DESCRIPTIONS: dict[Reason, str] = {
         "(D-0009), and it is also the most expensive rule we have."
     ),
     Reason.MAP_STALE: (
-        "The map was built at a commit that is not an ancestor of the change "
-        "being selected, so its line numbers may not describe this code."
+        "The map was built at a different commit from the branch point of this "
+        "change. Its line numbers describe that commit's code, not this one's, "
+        "so it cannot be trusted. Rebuild the map at the branch point."
     ),
     Reason.NO_MAP: "No map exists. The first run always executes everything.",
     Reason.CLASSIFIER_ERROR: (

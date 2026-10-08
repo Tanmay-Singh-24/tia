@@ -85,6 +85,31 @@ def is_ancestor(root: Path, maybe_ancestor: str, descendant: str) -> bool:
     return proc.returncode == 0
 
 
+def uncommitted_python(root: Path) -> list[str]:
+    """Python files whose working-tree content differs from HEAD.
+
+    Modified, staged, added, renamed or untracked — anything that would make a
+    map built now describe code other than the commit it is stamped with. Only
+    `.py` files count: editing .gitignore (which `tia init` does) or a README
+    moves no line number the map records.
+    """
+    out = git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    entries = out.split("\0")
+    found: list[str] = []
+    index = 0
+    while index < len(entries):
+        entry = entries[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+        status, path = entry[:2], entry[3:]
+        if status[0] in "RC":
+            index += 1  # -z puts the rename/copy source in the next field
+        if path.endswith(".py"):
+            found.append(path)
+    return sorted(found)
+
+
 def is_dirty(root: Path) -> bool:
     """Are there uncommitted changes? Developers run this on dirty trees."""
     return bool(git(root, "status", "--porcelain").strip())

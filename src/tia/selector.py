@@ -23,7 +23,6 @@ from tia.diff import (
     GitError,
     changed_lines,
     head_commit,
-    is_ancestor,
     resolve_base,
 )
 from tia.reasons import Reason
@@ -171,7 +170,10 @@ def _select_with_map(
 
     try:
         head = head_commit(repo_root)
-        resolved_base = base or resolve_base(repo_root, config.upstream)
+        # Always the branch point, whether the base came from config or from
+        # --base/--tia-base. Diffing against a ref's tip would describe every
+        # upstream commit this branch lacks, not this branch's change.
+        resolved_base = resolve_base(repo_root, base or config.upstream)
     except GitError:
         return fallback(Reason.NO_MAP, map_commit=map_commit, total_tests=total_tests)
 
@@ -185,7 +187,11 @@ def _select_with_map(
     # The map speaks the line numbers of the commit it was built at. If that
     # commit is not behind the change, its coordinates may not describe this
     # code at all.
-    if map_commit and not is_ancestor(repo_root, map_commit, resolved_base):
+    # The map speaks the line numbers of exactly one commit. It is trusted only
+    # when that commit IS the branch point. "Is an ancestor of it" is not
+    # enough: if main moved on in between, the same line number names
+    # different code, and the selection is confidently wrong (D-0016).
+    if map_commit and map_commit != resolved_base:
         return fallback(Reason.MAP_STALE, **common)
 
     try:
