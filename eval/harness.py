@@ -586,6 +586,30 @@ def replay_sites(spec: RepoSpec, results_file: Path) -> list[Mutation]:
     return sites
 
 
+def resumable(
+    prior: dict[str, Any],
+    mutations: list[Mutation],
+    use_import_graph: bool,
+    name: str,
+) -> list[MutantResult]:
+    """The finished mutants of an interrupted run, if it can honestly continue.
+
+    Its mutants must be exactly the first entries of this run's list, in order,
+    and it must be the same arm. Anything else is a different experiment, and
+    joining the two would produce a result no single run ever measured.
+    """
+    done = [MutantResult(**m) for m in prior["mutants"]]
+    expected = [m.as_dict() for m in mutations[: len(done)]]
+    if [r.mutation for r in done] != expected:
+        raise SystemExit(
+            f"{name} does not match this run's first {len(done)} mutations; "
+            "refusing to resume"
+        )
+    if prior.get("use_import_graph", True) != use_import_graph:
+        raise SystemExit(f"{name} is the other arm; refusing to resume")
+    return done
+
+
 def safety(
     spec: RepoSpec,
     *,
@@ -596,6 +620,7 @@ def safety(
     use_import_graph: bool = True,
     replay: Path | None = None,
     limit: int | None = None,
+    resume: Path | None = None,
 ) -> dict[str, Any]:
     """Run the safety experiment and write the results JSON."""
     map_file = db.map_path(spec.checkout)
@@ -640,7 +665,22 @@ def safety(
     out = RESULTS_DIR / f"safety_{spec.name}_{stamp}_seed{seed}_{arm}{tag}.json"
 
     results: list[MutantResult] = []
+    if resume is not None:
+        # Continue an interrupted run. Only meaningful when the mutation list is
+        # fixed, i.e. a replay: the prior file's mutants must be exactly the
+        # first entries of this list, in order, or the two runs are different
+        # experiments and joining them would be a fabrication.
+        prior = json.loads(resume.read_text())
+        results = resumable(prior, mutations, use_import_graph, resume.name)
+        out = resume
+        print(
+            f"[{spec.name}] resuming {resume.name} at {len(results)}/{len(mutations)}"
+        )
+
+    resumed = len(results)
     for index, mutation in enumerate(mutations):
+        if index < resumed:
+            continue
         result = evaluate_one(
             spec,
             mutation,
@@ -683,7 +723,7 @@ def safety(
             "full" if result.full_suite_selected else str(result.selected_count or "-")
         )
         elapsed = time.perf_counter() - started
-        rate = elapsed / (index + 1)
+        rate = elapsed / max(index + 1 - resumed, 1)  # this session's pace
         remaining = rate * (len(mutations) - index - 1)
         print(
             f"[{spec.name}] {index + 1:>3}/{len(mutations)} {marker:11} "
@@ -784,6 +824,12 @@ def main(argv: list[str] | None = None) -> int:
         "settings it was measured under (see eval/published.json)",
     )
     parser.add_argument(
+        "--resume",
+        type=Path,
+        metavar="RESULTS_JSON",
+        help="continue an interrupted replay, appending to its results file",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         metavar="K",
@@ -823,6 +869,7 @@ def main(argv: list[str] | None = None) -> int:
         use_import_graph=not args.no_import_graph,
         replay=args.replay,
         limit=args.limit,
+        resume=args.resume,
     )
     report(payload)
     return 1 if payload["summary"]["misses"] else 0

@@ -24,6 +24,7 @@ from harness import (  # noqa: E402
     MutantResult,
     count_executed,
     replay_sites,
+    resumable,
     summarise,
 )
 
@@ -208,3 +209,41 @@ def test_count_executed_reads_the_quiet_summary() -> None:
 
 def test_count_executed_with_no_summary_is_zero() -> None:
     assert count_executed("ERROR: file or directory not found: nope.py\n") == 0
+
+
+# --- resuming an interrupted run -------------------------------------------
+
+
+def _prior(mutations, graph: bool = True) -> dict:
+    return {
+        "use_import_graph": graph,
+        "mutants": [
+            {"index": i, "mutation": m.as_dict(), "outcome": OUTCOME_CAUGHT}
+            for i, m in enumerate(mutations)
+        ],
+    }
+
+
+def _mutations():
+    from mutate import find_mutations
+
+    source = "def f(a, b):\n    if a < b:\n        return a + b\n    return 0\n"
+    return find_mutations(source, "mod.py")
+
+
+def test_resume_continues_a_run_of_the_same_mutations() -> None:
+    mutations = _mutations()
+    done = resumable(_prior(mutations[:2]), mutations, True, "x.json")
+    assert [r.mutation for r in done] == [m.as_dict() for m in mutations[:2]]
+
+
+def test_resume_refuses_a_run_of_different_mutations() -> None:
+    mutations = _mutations()
+    with pytest.raises(SystemExit, match="refusing to resume"):
+        resumable(_prior(mutations[1:3]), mutations, True, "x.json")
+
+
+def test_resume_refuses_the_other_arm() -> None:
+    mutations = _mutations()
+    with pytest.raises(SystemExit, match="other arm"):
+        resumable(_prior(mutations[:2], graph=False), mutations, True, "x.json")
