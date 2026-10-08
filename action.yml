@@ -1,0 +1,93 @@
+name: tia selective tests
+description: >-
+  Run only the tests a change can affect, and the whole suite whenever that
+  cannot be established. Build the map on pushes to your main branch; select on
+  pull requests and other branches.
+branding:
+  icon: filter
+  color: green
+
+inputs:
+  mode:
+    description: >-
+      "build" on pushes to the main branch: run the suite once under coverage and
+      cache the map for this commit. "test" everywhere else: restore the map for
+      this change's branch point and run only what it selects.
+    required: true
+  base-ref:
+    description: Branch that changes are compared against.
+    default: main
+  pytest-args:
+    description: Extra arguments passed to pytest in test mode.
+    default: ""
+  tia-version:
+    description: tia-select version to install. Empty means the latest release.
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # A pinned version wins. Otherwise keep a tia the project already installed
+    # (e.g. pinned in its own dev dependencies) and only fetch one if missing.
+    - name: Install tia
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.tia-version }}" ]; then
+          python -m pip install "tia-select==${{ inputs.tia-version }}"
+        elif ! python -c "import tia" 2>/dev/null; then
+          python -m pip install tia-select
+        fi
+        python -m tia.cli --version
+
+    # A map is valid for one commit in one environment (D-0016, D-0019). The
+    # cache key names both, so a job never restores a map it cannot use.
+    - name: Describe the environment
+      id: env
+      shell: bash
+      run: |
+        echo "key=$(python -c 'import sys; print(f"{sys.platform}-py{sys.version_info[0]}.{sys.version_info[1]}")')" >> "$GITHUB_OUTPUT"
+
+    - name: Build the map
+      if: inputs.mode == 'build'
+      shell: bash
+      run: python -m tia.cli build
+
+    - name: Cache the map for this commit
+      if: inputs.mode == 'build'
+      uses: actions/cache/save@v4
+      with:
+        path: .tia/map.db
+        key: tia-map-${{ steps.env.outputs.key }}-${{ github.sha }}
+
+    # The map is trusted only at the exact branch point, so that is the commit
+    # whose map is restored. Requires actions/checkout with fetch-depth: 0.
+    - name: Find the branch point
+      if: inputs.mode == 'test'
+      id: base
+      shell: bash
+      run: |
+        git fetch --no-tags --quiet origin "${{ inputs.base-ref }}" || true
+        echo "sha=$(git merge-base HEAD "origin/${{ inputs.base-ref }}")" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the map for the branch point
+      if: inputs.mode == 'test'
+      id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: .tia/map.db
+        key: tia-map-${{ steps.env.outputs.key }}-${{ steps.base.outputs.sha }}
+
+    - name: Say whether a map was found
+      if: inputs.mode == 'test'
+      shell: bash
+      run: |
+        if [ "${{ steps.restore.outputs.cache-hit }}" = "true" ]; then
+          echo "tia: map restored for branch point ${{ steps.base.outputs.sha }}"
+        else
+          echo "tia: no map for branch point ${{ steps.base.outputs.sha }} - the whole suite will run"
+        fi
+
+    - name: Run the selected tests
+      if: inputs.mode == 'test'
+      shell: bash
+      run: python -m pytest --tia "--tia-base=${{ steps.base.outputs.sha }}" ${{ inputs.pytest-args }}
