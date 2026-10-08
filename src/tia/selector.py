@@ -10,6 +10,7 @@ The invariant this module exists to uphold: if anything at all is uncertain,
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -25,6 +26,7 @@ from tia.diff import (
     head_commit,
     resolve_base,
 )
+from tia.environment import differences, fingerprint
 from tia.reasons import Reason
 
 
@@ -80,6 +82,8 @@ class Decision:
     map_commit: str = ""
     total_tests: int = 0
     fallback_reasons: list[Reason] = field(default_factory=list)
+    detail: str = ""
+    """For a whole-suite fallback, what specifically caused it."""
 
     @property
     def primary_reason(self) -> Reason:
@@ -175,6 +179,7 @@ class Decision:
             "base": self.base,
             "head": self.head,
             "map_commit": self.map_commit,
+            "detail": self.detail,
             "selected": sorted(self.selected),
             "forced_paths": self.forced_paths,
             "pytest_args": self.pytest_args(),
@@ -195,9 +200,9 @@ class Decision:
         }
 
 
-def fallback(reason: Reason, **kwargs: Any) -> Decision:
+def fallback(reason: Reason, detail: str = "", **kwargs: Any) -> Decision:
     """Abandon selection. Always says why."""
-    return Decision(full_suite=True, fallback_reasons=[reason], **kwargs)
+    return Decision(full_suite=True, fallback_reasons=[reason], detail=detail, **kwargs)
 
 
 def select(
@@ -270,6 +275,18 @@ def _select_with_map(
     # different code, and the selection is confidently wrong (D-0016).
     if map_commit and map_commit != resolved_base:
         return fallback(Reason.MAP_STALE, **common)
+
+    # The map is equally specific to the environment it was built in: the code
+    # paths coverage recorded depend on the Python version, the platform and
+    # the installed packages (D-0019).
+    recorded = db.get_meta(conn, "environment")
+    changed = differences(
+        json.loads(recorded) if recorded else None, fingerprint(repo_root)
+    )
+    if changed:
+        return fallback(
+            Reason.ENVIRONMENT_CHANGED, detail="; ".join(changed[:3]), **common
+        )
 
     try:
         changes = changed_lines(

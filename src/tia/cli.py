@@ -226,6 +226,8 @@ def select_cmd(
         )
         for reason in dict.fromkeys(decision.fallback_reasons):
             _echo_err(f"  {reason.value}: {reason.description}")
+        if decision.detail:
+            _echo_err(f"  because: {decision.detail}")
         if explain:
             _print_explanations(decision)
         raise typer.Exit(code=EXIT_OK)

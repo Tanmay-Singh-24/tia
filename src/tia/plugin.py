@@ -71,8 +71,9 @@ def pytest_collection_modifyitems(
     if decision.full_suite:
         _banner(
             config,
-            f"tia: full suite ({decision.primary_reason.value}) — "
-            f"running all {len(items)} tests",
+            f"tia: full suite ({decision.primary_reason.value}"
+            + (f": {decision.detail}" if decision.detail else "")
+            + f") — running all {len(items)} tests",
         )
         return
 

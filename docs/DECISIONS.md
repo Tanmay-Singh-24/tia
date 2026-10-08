@@ -1026,3 +1026,54 @@ table is published.
 **How we would know this was wrong.** A miss on a parametrised or doctest
 item that function-level selection should have kept, or a report that tia runs
 everything in a tree whose only untracked files are not tests.
+
+---
+
+## D-0019 — The map is trusted only in the environment it was built in
+
+**Date:** 2026-10-08 · **Area:** environment/selector/mapper · **Status:** accepted
+
+**Context.** D-0016 made the map specific to one commit. It is equally specific
+to one environment. Coverage records the code paths that actually ran, and those
+depend on the Python version, the platform, and the version of every installed
+package. A map built on Linux under 3.12 has never seen a line reached only on
+Windows, or only under 3.11, or only under a newer release of a dependency —
+and selecting from it can miss the one test that reaches the changed line. In
+CI the map is built in one job and used in another, so this is not hypothetical.
+
+**Options considered.**
+1. *Document it.* Leaves a silent miss one misconfigured CI job away.
+2. *Fingerprint everything installed and require an exact match.* Safe, and
+   exhausting: installing ipython locally would invalidate the map; and a
+   project versioned from git (setuptools-scm, hatch-vcs) reports a new version
+   of *itself* on every commit, so every CI selection would fall back.
+3. *Fingerprint, with two exclusions.*
+
+**Decision.** Option 3. `tia build` records the Python major.minor, the
+platform, and every installed package's version. Selection falls back with the
+new reason `ENVIRONMENT_CHANGED` — naming what changed, e.g. `Python 3.12 ->
+3.11` or `attrs 23.1.0 -> 23.2.0` — when the Python version or platform
+differs, any package present at build time is missing or at a different
+version, or a new *pytest plugin* has appeared (it can reorder, skip or patch
+every test). A newly installed package that is not a pytest plugin is allowed;
+so is the project under test itself, recognised as any distribution installed
+from inside the repository, and tia itself. A map that recorded no environment
+— any map built before this change — is not trusted.
+
+Fallbacks now carry a `detail`, shown by `tia select` and in the pytest banner,
+because "ENVIRONMENT_CHANGED" alone does not tell anyone what to fix.
+
+**Cost.** Build the map in the environment you select in — the same Python,
+the same platform, the same lockfile. Maps built before this version must be
+rebuilt.
+
+**Evidence.** Eleven unit tests for the comparison, two end-to-end (a tampered
+environment falls back and names the change; a map with no recorded
+environment is not trusted). Both corpus maps rebuilt; replaying the first six
+published attrs mutants selects exactly as published (19, 2, full, 1 and 11
+tests), with no spurious `ENVIRONMENT_CHANGED` (`safety_attrs_2026-10-08T100410Z_seed2026_graph_replay_partial.json`). 160 tests pass.
+
+**How we would know this was wrong.** A report that tia falls back on every CI
+run with `ENVIRONMENT_CHANGED` naming a package nobody changed — a dependency
+that floats between jobs. The fix is a lockfile, and the detail line says which
+package to pin.

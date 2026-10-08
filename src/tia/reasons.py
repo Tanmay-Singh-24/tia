@@ -31,6 +31,7 @@ class Reason(StrEnum):
     IMPORT_CLOSURE = "IMPORT_CLOSURE"
     CLOSURE_TOO_LARGE = "CLOSURE_TOO_LARGE"
     MAP_STALE = "MAP_STALE"
+    ENVIRONMENT_CHANGED = "ENVIRONMENT_CHANGED"
     NO_MAP = "NO_MAP"
     CLASSIFIER_ERROR = "CLASSIFIER_ERROR"
     NO_CHANGES = "NO_CHANGES"
@@ -55,6 +56,7 @@ FALLBACK_REASONS: frozenset[Reason] = frozenset(
         Reason.IMPORT_TIME_LINE,
         Reason.CLOSURE_TOO_LARGE,
         Reason.MAP_STALE,
+        Reason.ENVIRONMENT_CHANGED,
         Reason.NO_MAP,
         Reason.CLASSIFIER_ERROR,
     }
@@ -129,6 +131,12 @@ DESCRIPTIONS: dict[Reason, str] = {
         "The map was built at a different commit from the branch point of this "
         "change. Its line numbers describe that commit's code, not this one's, "
         "so it cannot be trusted. Rebuild the map at the branch point."
+    ),
+    Reason.ENVIRONMENT_CHANGED: (
+        "The map was built under a different Python version, platform, or set "
+        "of installed package versions. Coverage records the code paths that "
+        "actually ran, and those depend on the environment, so the map cannot "
+        "be trusted here. Rebuild it in this environment."
     ),
     Reason.NO_MAP: "No map exists. The first run always executes everything.",
     Reason.CLASSIFIER_ERROR: (

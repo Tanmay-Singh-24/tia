@@ -622,3 +622,47 @@ def test_stray_untracked_files_do_not_force_a_full_suite(mini_project: Path) -> 
     decision = select(mini_project, Config(packages=["mini"], upstream="main"))
     assert not decision.full_suite, decision.fallback_reasons
     assert "tests/test_add.py::test_add" in decision.selected
+
+
+def _set_meta(root: Path, key: str, value: str | None) -> None:
+    conn = db.connect(db.map_path(root))
+    try:
+        if value is None:
+            conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+        else:
+            db.set_meta(conn, key, value)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_a_map_from_another_environment_falls_back_and_says_why(
+    mini_project: Path,
+) -> None:
+    import json
+
+    build_map(mini_project)
+    recorded = json.loads(
+        db.get_meta(db.connect(db.map_path(mini_project)), "environment")
+    )
+    recorded["python"] = "2.7"
+    _set_meta(mini_project, "environment", json.dumps(recorded))
+
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return a + b  # x"))
+    decision = select(mini_project, Config(packages=["mini"], upstream="main"))
+    assert decision.full_suite
+    assert decision.primary_reason is Reason.ENVIRONMENT_CHANGED
+    assert "Python 2.7 ->" in decision.detail
+
+
+def test_a_map_that_recorded_no_environment_is_not_trusted(mini_project: Path) -> None:
+    """Maps built before D-0019 carry no environment. Trusting them blind would
+    reopen exactly the hole this closes."""
+    build_map(mini_project)
+    _set_meta(mini_project, "environment", None)
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return a + b  # x"))
+    decision = select(mini_project, Config(packages=["mini"], upstream="main"))
+    assert decision.primary_reason is Reason.ENVIRONMENT_CHANGED
+    assert "records no environment" in decision.detail

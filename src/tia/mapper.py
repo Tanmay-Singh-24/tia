@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 import shlex
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from coverage import CoverageData
 from tia import db, importgraph
 from tia.config import Config
 from tia.diff import uncommitted_python
+from tia.environment import fingerprint
 
 # The context coverage.py uses for lines executed outside any test.
 IMPORT_TIME_CONTEXT = ""
@@ -299,6 +301,7 @@ def build(
             "suite_command": command,
             "total_tests": str(len(test_ids)),
             "build_duration_s": f"{result.build_duration_s:.3f}",
+            "environment": json.dumps(fingerprint(repo_root), sort_keys=True),
             "suite_duration_s": f"{result.suite_duration_s:.3f}",
         }.items():
             db.set_meta(conn, key, value)
