@@ -20,7 +20,8 @@ import sys
 from importlib import metadata
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 #: tia's own distribution. Upgrading tia does not change the code under test;
 #: the map's schema version guards against tia changing what a map means.
@@ -48,7 +49,10 @@ def installed_from_inside(direct_url_json: str | None, root: Path) -> bool:
     parsed = urlparse(url)
     if parsed.scheme != "file":
         return False
-    location = Path(unquote(parsed.path)).resolve()
+    # url2pathname, not the raw path: on Windows a file URL reads
+    # file:///C:/Users/..., and its path component '/C:/Users/...' is not a
+    # Windows path until the leading slash before the drive is dropped.
+    location = Path(url2pathname(parsed.path)).resolve()
     return location == root.resolve() or root.resolve() in location.parents
 
 

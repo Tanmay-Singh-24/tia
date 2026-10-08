@@ -26,12 +26,13 @@ jobs:
       - run: mypy --strict src/tia
 
   test:
-    name: pytest (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: pytest (${{ matrix.os }}, ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,4 +41,9 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev,eval]"
+      # The test suite builds throwaway git repositories and commits to them.
+      - run: |
+          git config --global user.name "tia ci"
+          git config --global user.email "ci@tia.invalid"
+          git config --global init.defaultBranch main
       - run: pytest
