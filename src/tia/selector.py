@@ -55,6 +55,18 @@ class Explanation:
         }
 
 
+def test_function(nodeid: str) -> str:
+    """A nodeid without its parametrisation: `t.py::test_x[1-a]` -> `t.py::test_x`.
+
+    The parameter id begins at the first `[` after the file part. Class and
+    function names cannot contain `[`, but parameter ids can contain `[` and
+    `::`, so the cut is made from the left of what follows the file.
+    """
+    file_part, sep, rest = nodeid.partition("::")
+    cut = rest.find("[")
+    return file_part + sep + (rest[:cut] if cut >= 0 else rest)
+
+
 @dataclass
 class Decision:
     """The complete, inspectable outcome of a selection."""
@@ -107,11 +119,39 @@ class Decision:
                 return True
         return False
 
+    @property
+    def changed_paths(self) -> set[str]:
+        """Every file this change touches, new-side paths."""
+        return {verdict.change.path for verdict in self.verdicts}
+
+    @property
+    def selected_functions(self) -> set[str]:
+        return {test_function(nodeid) for nodeid in self.selected}
+
+    def wants(self, nodeid: str, path: str | None = None) -> bool:
+        """Should this collected test run?
+
+        By nodeid; by test function, so a parametrisation the map has never
+        seen still runs when another parametrisation of it was selected (D-0018);
+        or by lying inside a forced path. `path` is the test's repo-relative
+        file when the caller knows it better than the nodeid does.
+        """
+        if self.full_suite:
+            return True
+        if nodeid in self.selected or test_function(nodeid) in self.selected_functions:
+            return True
+        return self.covers(path or nodeid.split("::")[0])
+
     def pytest_args(self) -> list[str]:
-        """What to hand pytest: forced paths whole, plus every other nodeid."""
+        """What to hand pytest: forced paths whole, then each selected test
+        function — not each parametrisation, so new ones run too."""
         forced = self.forced_paths
-        rest = [n for n in sorted(self.selected) if not self.covers(n.split("::")[0])]
-        return [*forced, *rest]
+        functions = {
+            test_function(nodeid)
+            for nodeid in self.selected
+            if not self.covers(nodeid.split("::")[0])
+        }
+        return [*forced, *sorted(functions)]
 
     def counts_by_reason(self) -> dict[str, int]:
         counts: dict[str, int] = {}

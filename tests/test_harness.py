@@ -22,6 +22,7 @@ from harness import (  # noqa: E402
     OUTCOME_ERROR,
     OUTCOME_MISS,
     MutantResult,
+    count_executed,
     replay_sites,
     summarise,
 )
@@ -189,3 +190,21 @@ def test_replay_refuses_another_repositorys_results(tmp_path, monkeypatch) -> No
     spec = _spec(tmp_path, monkeypatch)
     with pytest.raises(SystemExit, match="not demo"):
         replay_sites(spec, _recorded(tmp_path, [], repo="attrs"))
+
+
+# --- reading pytest's own output -------------------------------------------
+
+
+def test_count_executed_counts_what_ran_not_what_was_skipped() -> None:
+    out = (
+        "...\n= 1 failed, 30 passed, 10 skipped, 1 xfailed, 1381 deselected in 1.68s ="
+    )
+    assert count_executed(out) == 32
+
+
+def test_count_executed_reads_the_quiet_summary() -> None:
+    assert count_executed("....\n31 passed, 1381 deselected in 0.98s\n") == 31
+
+
+def test_count_executed_with_no_summary_is_zero() -> None:
+    assert count_executed("ERROR: file or directory not found: nope.py\n") == 0

@@ -90,10 +90,12 @@ def mini_project(git_repo: Path, commit) -> Path:
     return git_repo
 
 
-def build_map(root: Path) -> None:
+def build_map(root: Path, *extra: str) -> None:
     """Run the instrumented suite in-process the way `tia build` does."""
     config = Config(packages=["mini"], upstream="main")
-    result = run_pytest(root, "--cov=mini", "--cov-context=test", "--cov-report=")
+    result = run_pytest(
+        root, "--cov=mini", "--cov-context=test", "--cov-report=", *extra
+    )
     assert result.returncode == 0, result.stdout
     head = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -559,3 +561,64 @@ def test_a_new_test_in_a_changed_test_file_actually_runs(mini_project: Path) -> 
     assert "test_brand_new" in result.stdout and result.returncode != 0, (
         "the new test was not run:\n" + result.stdout
     )
+
+
+def test_an_untracked_new_test_file_still_runs(mini_project: Path) -> None:
+    """Locally, a test file you have not `git add`-ed yet is invisible to
+    `git diff`. It is still part of the change you are about to test."""
+    build_map(mini_project)
+    (mini_project / "tests" / "test_untracked.py").write_text(
+        "def test_not_yet_added():\n    assert False\n"
+    )
+    decision = select(mini_project, Config(packages=["mini"], upstream="main"))
+    assert "tests/test_untracked.py" in decision.forced_paths or decision.full_suite
+    result = run_pytest(mini_project, "--tia", "--tia-base=main")
+    assert "test_not_yet_added" in result.stdout and result.returncode != 0, (
+        result.stdout
+    )
+
+
+def test_tias_own_artefacts_are_not_mistaken_for_a_change(mini_project: Path) -> None:
+    """Building the map leaves .coverage behind. Treating it as an untracked
+    change would turn every selection into a full suite."""
+    build_map(mini_project)
+    assert (mini_project / ".coverage").exists()
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return a + b  # x"))
+    decision = select(mini_project, Config(packages=["mini"], upstream="main"))
+    assert not decision.full_suite, decision.fallback_reasons
+
+
+def test_a_new_doctest_in_a_changed_source_file_runs(mini_project: Path) -> None:
+    """In a --doctest-modules project, a doctest written in this change has an
+    id the map has never seen and lives in a source file, not a test file."""
+    build_map(mini_project, "--doctest-modules")
+    base = _git(mini_project, "rev-parse", "HEAD")
+    source = mini_project / "mini.py"
+    source.write_text(
+        source.read_text().replace(
+            "def unused(a, b):\n",
+            'def unused(a, b):\n    """\n    >>> unused(2, 3)\n    999\n    """\n',
+        )
+    )
+    _git(mini_project, "add", "mini.py")
+    _git(mini_project, "commit", "-m", "a new, failing doctest")
+
+    result = run_pytest(
+        mini_project, "--doctest-modules", "--tia", f"--tia-base={base}"
+    )
+    assert "mini.unused" in result.stdout and result.returncode != 0, result.stdout
+
+
+def test_stray_untracked_files_do_not_force_a_full_suite(mini_project: Path) -> None:
+    """A messy working tree must not make tia useless. Only untracked files
+    that define tests — test modules, conftest.py — count as part of a change."""
+    build_map(mini_project)
+    (mini_project / "notes.txt").write_text("todo\n")
+    (mini_project / ".DS_Store").write_bytes(b"\\x00")
+    (mini_project / "scratch.py").write_text("x = 1\n")
+    source = mini_project / "mini.py"
+    source.write_text(source.read_text().replace("return a + b", "return a + b  # x"))
+    decision = select(mini_project, Config(packages=["mini"], upstream="main"))
+    assert not decision.full_suite, decision.fallback_reasons
+    assert "tests/test_add.py::test_add" in decision.selected

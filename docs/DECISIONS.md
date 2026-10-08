@@ -971,3 +971,58 @@ non-default name (a custom `python_files`) is now treated as source. That is the
 safe direction — unmapped, so everything runs — but if a project reports tia
 running its whole suite for every test edit, this is why, and reading
 `python_files` from the pytest configuration is the fix.
+
+---
+
+## D-0018 — Tests the map has never seen: untracked files, new parametrisations, new doctests
+
+**Date:** 2026-10-08 · **Area:** diff/selector/plugin/eval · **Status:** accepted
+
+**Context.** D-0017 made changed test files run whole. Three more ways remained
+for a test to exist that the map could not name, each confirmed with a test
+that failed on the old code with a silent pass:
+
+- *Untracked test files.* `git diff <base>` never lists untracked files, so a
+  test written but not yet `git add`-ed was invisible to a local `tia run`.
+- *New parametrisations.* A test parametrised over data in the source —
+  `@pytest.mark.parametrize("op", mod.OPERATIONS)` — gains an id such as
+  `test_x[new_op]` when a value is added. The plugin kept tests by full nodeid,
+  so the new case, the one exercising the new code, was deselected.
+- *New doctests.* In a `--doctest-modules` project, a doctest written in this
+  change has a new id and lives in a source file, which no forced path covers.
+  Shown failing: `selected 3 of 4 ... 3 passed, 1 deselected`.
+
+**Decision.**
+1. Untracked files that *define or alter tests* — test modules and
+   `conftest.py` — join the change. Nothing else untracked does.
+2. Selection is by **test function**: if any parametrisation of `test_x` is
+   selected, every parametrisation runs, including ones the map has never seen.
+   `tia run` and `tia select` pass `path::test_x` to pytest, which runs them all.
+3. The plugin keeps every doctest located in a changed file.
+
+**A regression caught in this change, before it was committed.** The first
+version of (1) counted *every* untracked file. A replay spot-check then showed
+every mutant falling back — each corpus checkout carries an untracked
+`.tia.toml`, which is not Python, so `NON_SOURCE_ASSET` fired every time. A real
+user's stray `.DS_Store` or scratch notes would do the same: tia would quietly
+run the whole suite on every change, which is safe and useless. Restricting (1)
+to files that define tests fixed it, and the spot-check returned to the
+published selections (19, 2, full, 1, 11 tests on the first six mutants).
+`test_stray_untracked_files_do_not_force_a_full_suite` pins it.
+
+**The harness now runs what the tool runs.** It previously ran the bare nodeid
+set; it now runs `pytest_args` — forced paths and selected test functions — and
+computes precision from the tests the selected run actually executed, read from
+pytest's own summary, since the arguments are no longer individual nodeids.
+
+**What this means for the published figures.** They were measured with
+nodeid-level selection, which is a subset of what the shipped tool now runs.
+Running a superset cannot turn a caught defect into a miss, so the published 0
+misses still bounds the shipped behaviour. The published time savings and
+precision describe the narrower selection and are an upper bound on savings;
+they are re-measured under the shipped behaviour before the next release's
+table is published.
+
+**How we would know this was wrong.** A miss on a parametrised or doctest
+item that function-level selection should have kept, or a report that tia runs
+everything in a tree whose only untracked files are not tests.

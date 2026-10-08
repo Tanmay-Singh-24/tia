@@ -144,6 +144,19 @@ def failing_nodeids(output: str) -> set[str]:
     return {m.group(1) for m in FAILED_RE.finditer(output)}
 
 
+# Counts that ran: skipped and deselected tests executed nothing that could fail.
+SUMMARY_RE = re.compile(r"(\d+) (passed|failed|errors?|xfailed|xpassed)\b")
+SUMMARY_LINE_RE = re.compile(r"\b\d+ [a-z]+.* in [\d.]+s")
+
+
+def count_executed(output: str) -> int:
+    """How many tests a pytest run executed, from its final summary line."""
+    summaries = [line for line in output.splitlines() if SUMMARY_LINE_RE.search(line)]
+    if not summaries:
+        return 0
+    return sum(int(count) for count, _ in SUMMARY_RE.findall(summaries[-1]))
+
+
 def run_suite(
     spec: RepoSpec,
     nodeids: list[str] | None,
@@ -304,15 +317,12 @@ def evaluate_one(
             result.note = "fell back to the full suite"
             return result
 
-        nodeids = list(decision["selected"])
+        # Run exactly what the shipped tool would run — forced paths whole and
+        # each selected test function with all its parametrisations — not the
+        # bare nodeid set. Measuring anything else measures a different tool.
+        # Results written before D-0018 ran the nodeid set, a subset of this.
+        nodeids = list(decision.get("pytest_args") or decision["selected"])
 
-        # SPEC B.9 metric 3. Measured only where tia actually selected: on a
-        # fallback the selection is the whole suite and precision is trivially
-        # the base rate, which would flatter the average.
-        if failed and nodeids:
-            hit = failed & set(nodeids)
-            result.failing_selected = len(hit)
-            result.precision = round(len(hit) / len(nodeids), 4)
         if not nodeids:
             result.outcome = OUTCOME_MISS
             result.note = "selection was empty while the full suite failed"
@@ -327,6 +337,17 @@ def evaluate_one(
         )
         result.selected_exit = -1 if selected.timed_out else selected.exit_code
         result.selected_s = round(selected.duration_s, 3)
+
+        # SPEC B.9 metric 3, over the tests the selected run actually executed.
+        # Measured only where tia selected: on a fallback the selection is the
+        # whole suite and precision is the base rate, flattering the average.
+        # Read from the run's own output, because the arguments are now test
+        # functions and paths rather than the individual nodeids that ran.
+        executed = count_executed(selected.stdout + selected.stderr)
+        if failed and executed:
+            hit = failed & failing_nodeids(selected.stdout + selected.stderr)
+            result.failing_selected = len(hit)
+            result.precision = round(len(hit) / executed, 4)
         result.outcome = OUTCOME_CAUGHT if selected.exit_code != 0 else OUTCOME_MISS
         if result.outcome == OUTCOME_MISS:
             result.note = (

@@ -76,19 +76,21 @@ def pytest_collection_modifyitems(
         )
         return
 
-    selected = decision.selected
+    changed = decision.changed_paths
 
     def wanted(item: pytest.Item) -> bool:
-        # Known to the map by nodeid, or inside a changed test file / conftest
-        # directory — where a test written in this change, which the map has
-        # never seen, still has to run.
-        if item.nodeid in selected:
-            return True
         try:
-            relative = Path(str(item.path)).resolve().relative_to(root.resolve())
+            relative: str | None = (
+                Path(str(item.path)).resolve().relative_to(root.resolve()).as_posix()
+            )
         except ValueError:
-            return False
-        return decision.covers(relative.as_posix())
+            relative = None
+        # A doctest written in this change has a nodeid the map has never
+        # seen, and lives in a source file rather than a test file — so no
+        # forced path covers it. Keep every doctest in a changed file (D-0018).
+        if type(item).__name__ == "DoctestItem" and relative in changed:
+            return True
+        return decision.wants(item.nodeid, relative)
 
     keep = [item for item in items if wanted(item)]
     removed = [item for item in items if not wanted(item)]

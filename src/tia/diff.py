@@ -241,4 +241,43 @@ def changed_lines(
     args = ["diff", "--unified=0", "--no-color", "--find-renames", base]
     if not (include_uncommitted and is_dirty(root)):
         args.append("HEAD")
-    return parse_diff(git(root, *args))
+    changes = parse_diff(git(root, *args))
+    if include_uncommitted:
+        # `git diff` never shows untracked files. A test file written but not
+        # yet `git add`-ed is still part of the change about to be tested.
+        changes += [
+            FileChange(
+                path=path,
+                old_path=None,
+                status="A",
+                old_lines=frozenset(),
+                insertions=True,
+            )
+            for path in untracked_files(root)
+        ]
+    return changes
+
+
+def _defines_tests(path: str) -> bool:
+    """A test module or a conftest.py — a file that defines or alters tests."""
+    name = path.rsplit("/", 1)[-1]
+    return (
+        name == "conftest.py"
+        or (name.startswith("test_") and name.endswith(".py"))
+        or name.endswith("_test.py")
+    )
+
+
+def untracked_files(root: Path) -> list[str]:
+    """Untracked files that define or alter tests: test modules and conftest.py.
+
+    These are the only untracked files that matter to a selection. A new test
+    file not yet `git add`-ed is part of the change being tested. An untracked
+    source module can only reach a test through a tracked change that imports
+    it, and that change is already selected for. Everything else untracked — a
+    stray .DS_Store, scratch notes, a .env, tia's own .tia.toml and .coverage —
+    is ignored: counting it turned every local selection into a full suite,
+    which is safe and useless (D-0018).
+    """
+    out = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+    return sorted(p for p in out.split("\0") if p and _defines_tests(p))
